@@ -11,17 +11,14 @@
 
 <!-- ✅ ИСПРАВЛЕНО: единое имя SeeSo (с заглавной S посередине) везде -->
 <script type="module">
-import Seeso from './sdk/seeso.js';
+  import Seeso, { TrackingState, BlinkState, CalibrationMode } from './sdk/seeso.js';
 
-window.SeeSo                  = Seeso;
-window.SeeSo.TrackingState    = Seeso.TrackingState;
-window.SeeSo.BlinkState       = Seeso.BlinkState;
-window.SeeSo.CalibrationMode  = Seeso.CalibrationMode;
+  window.SeeSo                  = Seeso;
+  window.SeeSo.TrackingState    = TrackingState;
+  window.SeeSo.BlinkState       = BlinkState;
+  window.SeeSo.CalibrationMode  = CalibrationMode;
 
-console.log('✅ SeeSo SDK loaded:', typeof window.SeeSo);
-console.log('   TrackingState:', window.SeeSo.TrackingState);
-console.log('   BlinkState:',    window.SeeSo.BlinkState);
-console.log('   CalibrationMode:', window.SeeSo.CalibrationMode);
+  console.log('✅ SeeSo SDK loaded:', typeof window.SeeSo);
 </script>
 
 <style>
