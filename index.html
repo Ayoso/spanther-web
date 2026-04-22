@@ -1,0 +1,2442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPANTHER — Weaponize Your Gaze</title>
+<meta name="description" content="The mobile game that trains your attention and focus using real eye-tracking science. Defend a planet with your gaze.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Barlow+Condensed:ital,wght@0,200;0,400;0,600;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="/sdk/seeso.js"></script>
+<style>
+:root {
+  --bg0: #010108;
+  --bg1: #06060f;
+  --bg2: #0b0b1a;
+  --bg3: #111128;
+  --cyan: #00e5ff;
+  --lime: #aaff00;
+  --gold: #d4a853;
+  --red: #ff3a5c;
+  --text: #e8e8f8;
+  --muted: #6868a0;
+  --border: rgba(0,229,255,0.12);
+  --glow-c: 0 0 30px rgba(0,229,255,0.35);
+  --glow-l: 0 0 30px rgba(170,255,0,0.35);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg0);
+  color: var(--text);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 400;
+  overflow-x: hidden;
+  cursor: none;
+}
+a { color: inherit; text-decoration: none; }
+
+#cursor-dot {
+  width: 8px; height: 8px;
+  background: var(--cyan);
+  border-radius: 50%;
+  position: fixed; top: 0; left: 0;
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%,-50%);
+  transition: width .15s, height .15s, background .15s;
+  box-shadow: 0 0 10px var(--cyan), 0 0 20px rgba(0,229,255,0.4);
+}
+#cursor-ring {
+  width: 36px; height: 36px;
+  border: 1.5px solid rgba(0,229,255,0.6);
+  border-radius: 50%;
+  position: fixed; top: 0; left: 0;
+  pointer-events: none; z-index: 9998;
+  transform: translate(-50%,-50%);
+  transition: transform .08s ease, width .2s, height .2s, border-color .2s;
+}
+body.hovering #cursor-dot { width: 12px; height: 12px; background: var(--lime); }
+body.hovering #cursor-ring { width: 50px; height: 50px; border-color: rgba(170,255,0,0.7); }
+
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 48px;
+  background: rgba(1,1,8,0.0);
+  backdrop-filter: blur(0px);
+  border-bottom: 1px solid transparent;
+  transition: background .4s, backdrop-filter .4s, border-color .4s;
+}
+nav.scrolled {
+  background: rgba(1,1,8,0.88);
+  backdrop-filter: blur(20px);
+  border-color: var(--border);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 12px;
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 22px; letter-spacing: 4px;
+  color: var(--text);
+}
+.nav-logo-icon { width: 36px; height: 36px; }
+.nav-links { display: flex; gap: 36px; list-style: none; }
+.nav-links a {
+  font-family: 'Space Mono', monospace; font-size: 11px;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); transition: color .2s;
+}
+.nav-links a:hover { color: var(--cyan); }
+.nav-cta {
+  padding: 10px 24px;
+  background: transparent;
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  font-family: 'Orbitron', sans-serif; font-weight: 600;
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  transition: background .2s, box-shadow .2s;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+}
+.nav-cta:hover {
+  background: rgba(0,229,255,0.1);
+  box-shadow: var(--glow-c);
+}
+
+#hero {
+  position: relative; height: 100vh; min-height: 700px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+#particle-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 1;
+}
+.hero-bg-grid {
+  position: absolute; inset: 0; z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridPulse 8s ease-in-out infinite;
+}
+@keyframes gridPulse {
+  0%,100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+.hero-vignette {
+  position: absolute; inset: 0; z-index: 2;
+  background: radial-gradient(ellipse at center, transparent 30%, var(--bg0) 80%);
+  pointer-events: none;
+}
+
+.hero-eye-wrap {
+  position: absolute; top: 50%; left: 50%; z-index: 3;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.hero-eye {
+  width: 480px; height: 480px; position: relative;
+}
+.eye-orbit {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 1px solid rgba(0,229,255,0.08);
+  animation: orbitSpin 20s linear infinite;
+}
+.eye-orbit:nth-child(2) { inset: 20px; animation-duration: 14s; animation-direction: reverse; border-color: rgba(170,255,0,0.06); }
+.eye-orbit:nth-child(3) { inset: 40px; animation-duration: 10s; border-color: rgba(0,229,255,0.05); }
+@keyframes orbitSpin { to { transform: rotate(360deg); } }
+.eye-orbit::before {
+  content: '';
+  position: absolute; top: -3px; left: 50%;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  transform: translateX(-50%);
+}
+.eye-orbit:nth-child(2):before { background: var(--lime); box-shadow: 0 0 10px var(--lime); }
+
+.iris-container {
+  position: absolute; top: 50%; left: 50%;
+  width: 220px; height: 220px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+}
+.iris-bg {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(
+    rgba(0,229,255,0.25) 0deg, rgba(0,120,150,0.1) 45deg,
+    rgba(0,229,255,0.3) 90deg, rgba(0,80,100,0.05) 135deg,
+    rgba(0,229,255,0.2) 180deg, rgba(0,100,130,0.1) 225deg,
+    rgba(0,229,255,0.28) 270deg, rgba(0,150,180,0.05) 315deg,
+    rgba(0,229,255,0.25) 360deg
+  );
+  animation: irisSpin 12s linear infinite;
+}
+@keyframes irisSpin { to { transform: rotate(360deg); } }
+.iris-spokes {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: repeating-conic-gradient(
+    rgba(0,229,255,0.12) 0deg 2deg,
+    transparent 2deg 18deg
+  );
+  animation: irisSpin 25s linear infinite reverse;
+}
+.iris-ring {
+  position: absolute; border-radius: 50%;
+  border: 1px solid rgba(0,229,255,0.2);
+  top: 50%; left: 50%; transform: translate(-50%,-50%);
+}
+.iris-ring-1 { width: 180px; height: 180px; }
+.iris-ring-2 { width: 140px; height: 140px; border-color: rgba(170,255,0,0.15); }
+.iris-ring-3 { width: 100px; height: 100px; }
+
+.pupil-wrap {
+  position: absolute; top: 50%; left: 50%;
+  width: 70px; height: 70px;
+  transform: translate(-50%,-50%);
+  border-radius: 50%;
+  background: var(--bg0);
+  box-shadow: 0 0 30px rgba(0,229,255,0.5), inset 0 0 20px rgba(0,0,0,0.9);
+  transition: transform 0.08s ease;
+}
+.pupil-inner {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(0,229,255,0.3), transparent 60%),
+              radial-gradient(circle at 65% 65%, rgba(0,50,80,0.5), var(--bg0) 70%);
+}
+.pupil-shine {
+  position: absolute; top: 15%; left: 20%;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.6), transparent);
+}
+
+.float-eye {
+  position: absolute; width: 32px; height: 32px; z-index: 4;
+  pointer-events: none; opacity: 0;
+  animation: floatEyeAnim var(--dur, 8s) ease-in-out var(--delay, 0s) infinite;
+}
+@keyframes floatEyeAnim {
+  0% { opacity: 0; transform: translateY(0) scale(0.8); }
+  15% { opacity: 0.5; }
+  50% { opacity: 0.6; transform: translateY(-20px) scale(1); }
+  85% { opacity: 0.4; }
+  100% { opacity: 0; transform: translateY(-50px) scale(0.9); }
+}
+
+.hero-content {
+  position: relative; z-index: 5;
+  text-align: center; padding: 0 20px;
+}
+.hero-tag {
+  display: inline-block;
+  font-family: 'Space Mono', monospace; font-size: 11px;
+  letter-spacing: 4px; text-transform: uppercase;
+  color: var(--cyan); margin-bottom: 28px;
+  padding: 6px 16px; border: 1px solid rgba(0,229,255,0.3);
+  background: rgba(0,229,255,0.05);
+  animation: fadeSlideUp 1s ease both;
+}
+.hero-h1 {
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: clamp(52px, 8vw, 96px);
+  line-height: 0.9; letter-spacing: -2px;
+  margin-bottom: 12px;
+  animation: fadeSlideUp 1s .15s ease both;
+}
+.hero-h1 span.cyan { color: var(--cyan); text-shadow: 0 0 40px rgba(0,229,255,0.6); }
+.hero-h1 span.lime { color: var(--lime); text-shadow: 0 0 40px rgba(170,255,0,0.6); }
+.hero-sub {
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 300;
+  font-size: clamp(14px, 2vw, 18px); letter-spacing: 6px;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 32px;
+  animation: fadeSlideUp 1s .3s ease both;
+}
+.hero-desc {
+  max-width: 520px; margin: 0 auto 44px;
+  font-size: 17px; line-height: 1.7; color: rgba(232,232,248,0.7);
+  font-weight: 300;
+  animation: fadeSlideUp 1s .45s ease both;
+}
+.hero-ctas {
+  display: flex; gap: 16px; justify-content: center; align-items: center;
+  animation: fadeSlideUp 1s .6s ease both;
+}
+.btn-primary {
+  padding: 14px 36px;
+  background: var(--cyan); color: var(--bg0);
+  font-family: 'Orbitron', sans-serif; font-weight: 700;
+  font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+  border: none; clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+  transition: box-shadow .25s, transform .2s;
+  cursor: none;
+}
+.btn-primary:hover {
+  box-shadow: 0 0 40px rgba(0,229,255,0.6);
+  transform: translateY(-2px);
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.scroll-hint {
+  position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+  z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  opacity: 0.4; animation: fadeIn 2s 1.5s both;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 0.4; } }
+.scroll-line {
+  width: 1px; height: 50px;
+  background: linear-gradient(to bottom, transparent, var(--cyan));
+  animation: scrollLineDrop 1.5s ease-in-out infinite;
+}
+@keyframes scrollLineDrop {
+  0% { transform: scaleY(0); transform-origin: top; }
+  50% { transform: scaleY(1); transform-origin: top; }
+  51% { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+.scroll-hint span {
+  font-family: 'Space Mono', monospace; font-size: 9px;
+  letter-spacing: 3px; text-transform: uppercase; color: var(--cyan);
+}
+
+.eye-divider {
+  position: relative; height: 60px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.eye-divider::before, .eye-divider::after {
+  content: ''; position: absolute; top: 50%;
+  height: 1px; width: calc(50% - 60px);
+  background: linear-gradient(var(--dir, to right), transparent, rgba(0,229,255,0.3));
+}
+.eye-divider::before { left: 0; --dir: to right; }
+.eye-divider::after { right: 0; --dir: to left; }
+.eye-divider-icon {
+  width: 28px; height: 20px; position: relative; flex-shrink: 0;
+  animation: eyeBlink 4s ease-in-out infinite;
+}
+@keyframes eyeBlink {
+  0%,95%,100% { transform: scaleY(1); }
+  97% { transform: scaleY(0.05); }
+}
+
+section { padding: 100px 48px; }
+.section-label {
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  letter-spacing: 4px; text-transform: uppercase;
+  color: var(--cyan); margin-bottom: 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.section-label::before {
+  content: ''; display: inline-block;
+  width: 30px; height: 1px; background: var(--cyan);
+}
+.section-h2 {
+  font-family: 'Orbitron', sans-serif; font-weight: 700;
+  font-size: clamp(28px, 4vw, 48px);
+  line-height: 1.1; margin-bottom: 20px;
+}
+.section-h2 em { font-style: normal; color: var(--cyan); }
+.reveal { opacity: 0; transform: translateY(40px); transition: opacity .7s ease, transform .7s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+#stats {
+  background: var(--bg1);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.stats-inner { max-width: 1100px; margin: 0 auto; }
+.stats-header { text-align: center; margin-bottom: 70px; }
+.stats-header p { font-size: 18px; color: var(--muted); max-width: 560px; margin: 16px auto 0; }
+.stats-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
+}
+.stat-card {
+  background: var(--bg2); padding: 48px 36px;
+  position: relative; overflow: hidden; text-align: center;
+}
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: var(--accent, var(--cyan));
+  box-shadow: 0 0 20px var(--accent, var(--cyan));
+}
+.stat-card:nth-child(2) { --accent: var(--lime); }
+.stat-card:nth-child(3) { --accent: var(--gold); }
+.stat-number {
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 68px; line-height: 1;
+  color: var(--accent, var(--cyan));
+  text-shadow: 0 0 40px var(--accent, rgba(0,229,255,0.6));
+  margin-bottom: 8px;
+}
+.stat-label {
+  font-family: 'Space Mono', monospace; font-size: 11px;
+  letter-spacing: 3px; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 16px;
+}
+.stat-desc { font-size: 15px; color: rgba(232,232,248,0.6); line-height: 1.6; font-weight: 300; }
+.stat-bg-char {
+  position: absolute; bottom: -20px; right: -10px;
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 120px; opacity: 0.04; pointer-events: none;
+  color: var(--accent, var(--cyan));
+}
+
+#how { max-width: 1100px; margin: 0 auto; }
+.how-header { margin-bottom: 70px; max-width: 500px; }
+.how-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
+.how-step {
+  padding: 36px; background: var(--bg2);
+  border: 1px solid var(--border); position: relative;
+  transition: border-color .3s, transform .3s;
+}
+.how-step:hover { border-color: rgba(0,229,255,0.4); transform: translateY(-4px); }
+.step-num {
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 11px; letter-spacing: 3px; color: var(--muted);
+  margin-bottom: 20px;
+}
+.step-icon {
+  width: 64px; height: 64px; margin-bottom: 20px;
+  position: relative; display: flex; align-items: center; justify-content: center;
+}
+.step-h3 {
+  font-family: 'Orbitron', sans-serif; font-weight: 700;
+  font-size: 16px; letter-spacing: 1px; margin-bottom: 12px;
+  color: var(--cyan);
+}
+.how-step:nth-child(2) .step-h3 { color: var(--lime); }
+.how-step:nth-child(3) .step-h3 { color: var(--gold); }
+.step-desc { font-size: 15px; line-height: 1.7; color: rgba(232,232,248,0.65); font-weight: 300; }
+.step-connector {
+  position: absolute; right: -16px; top: 50%;
+  width: 32px; height: 1px; background: var(--border); z-index: 5;
+}
+.step-connector::after {
+  content: ''; position: absolute; right: 0; top: -3px;
+  border-left: 6px solid rgba(0,229,255,0.3); border-top: 3px solid transparent; border-bottom: 3px solid transparent;
+}
+
+#demo { background: var(--bg1); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.demo-inner { max-width: 1100px; margin: 0 auto; }
+.demo-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 36px; flex-wrap: wrap; gap: 20px; }
+.demo-header-right {
+  font-family: 'Space Mono', monospace; font-size: 11px;
+  color: var(--muted); line-height: 1.8;
+}
+.demo-header-right span { color: var(--lime); }
+
+.demo-arena {
+  position: relative; background: var(--bg0);
+  border: 1px solid rgba(0,229,255,0.2);
+  box-shadow: 0 0 60px rgba(0,229,255,0.08), inset 0 0 60px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.demo-arena::before {
+  content: 'LIVE DEMO';
+  position: absolute; top: 12px; left: 16px; z-index: 10;
+  font-family: 'Space Mono', monospace; font-size: 9px;
+  letter-spacing: 4px; color: var(--lime);
+  display: flex; align-items: center; gap: 6px;
+}
+.demo-arena::after {
+  content: '';
+  position: absolute; top: 14px; left: 90px; z-index: 10;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--lime); box-shadow: 0 0 8px var(--lime);
+  animation: livePulse 1.2s ease-in-out infinite;
+}
+@keyframes livePulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+#game-canvas { display: block; width: 100%; cursor: none; }
+
+.webcam-pip {
+  position: absolute; bottom: 16px; right: 16px; z-index: 20;
+  width: 140px; height: 100px;
+  border: 1px solid rgba(0,229,255,0.3);
+  background: var(--bg0); overflow: hidden;
+}
+.webcam-pip video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.webcam-pip-label {
+  position: absolute; bottom: 4px; left: 6px;
+  font-family: 'Space Mono', monospace; font-size: 8px;
+  letter-spacing: 2px; color: rgba(0,229,255,0.7); text-transform: uppercase;
+  background: rgba(1,1,8,0.7); padding: 2px 4px;
+}
+.webcam-pip-status {
+  position: absolute; top: 6px; right: 6px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--muted);
+}
+.webcam-pip-status.active { background: var(--lime); box-shadow: 0 0 8px var(--lime); animation: livePulse 1s infinite; }
+
+/* ====== CALIBRATION OVERLAY (ОБНОВЛЕНО) ====== */
+.calibration-overlay {
+  position: absolute; inset: 0;
+  background: rgba(1, 1, 8, 0.92);
+  backdrop-filter: blur(8px);
+  z-index: 50;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+}
+.calibration-overlay.active { display: flex; }
+
+.calib-header {
+  margin-top: 32px;
+  text-align: center;
+}
+.calib-title {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900; font-size: 18px;
+  letter-spacing: 5px; color: var(--cyan);
+  text-shadow: 0 0 20px rgba(0, 229, 255, 0.6);
+  margin-bottom: 8px;
+}
+.calib-sub {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px; letter-spacing: 3px;
+  color: var(--muted); text-transform: uppercase;
+  transition: color 0.3s;
+}
+.calib-sub.collecting { color: var(--lime); }
+
+.calib-progress-wrap {
+  position: absolute;
+  bottom: 28px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px;
+  min-width: 220px;
+}
+.calib-progress-track {
+  flex: 1; height: 3px;
+  background: rgba(0, 229, 255, 0.12);
+  border-radius: 2px; overflow: hidden;
+}
+.calib-progress-bar {
+  height: 100%; width: 0%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  border-radius: 2px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.calib-progress-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; letter-spacing: 2px; color: var(--muted);
+  white-space: nowrap;
+}
+
+/* === Точка калибровки === */
+.calibration-point {
+  position: absolute;
+  width: 60px; height: 60px;
+  display: none;
+  align-items: center; justify-content: center;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+.calibration-point.visible { display: flex; }
+
+/* Анимация появления точки */
+@keyframes calibPointAppear {
+  from { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+  to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+}
+.calibration-point.visible {
+  animation: calibPointAppear 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Внешний пульсирующий круг */
+.calib-dot-outer {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 1.5px solid rgba(255, 58, 92, 0.4);
+  animation: calibPulse 1.2s ease-in-out infinite;
+}
+@keyframes calibPulse {
+  0%, 100% { transform: scale(1);   opacity: 0.5; }
+  50%       { transform: scale(1.3); opacity: 0.15; }
+}
+
+/* Центральная точка */
+.calib-dot-inner {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 16px var(--red), 0 0 32px rgba(255, 58, 92, 0.4);
+  position: relative; z-index: 2;
+  transition: transform 0.15s, background 0.2s;
+}
+.calibration-point:hover .calib-dot-inner { transform: scale(1.2); }
+.calibration-point.collecting .calib-dot-inner {
+  background: var(--cyan);
+  box-shadow: 0 0 16px var(--cyan), 0 0 32px rgba(0, 229, 255, 0.4);
+}
+
+/* Блик */
+.calib-dot-shine {
+  position: absolute; top: 12px; left: 16px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  z-index: 3; pointer-events: none;
+}
+
+/* SVG кольцо прогресса сбора сэмплов */
+.calib-dot-ring {
+  position: absolute; inset: 0; z-index: 1;
+}
+.calib-ring-track {
+  fill: none; stroke: rgba(0, 229, 255, 0.1);
+  stroke-width: 3;
+}
+.calib-ring-fill {
+  fill: none; stroke: var(--cyan);
+  stroke-width: 3; stroke-linecap: round;
+  stroke-dasharray: 163.4;       /* 2π × r = 2π × 26 */
+  stroke-dashoffset: 163.4;      /* начинаем пустым */
+  transform: rotate(-90deg); transform-origin: 30px 30px;
+  transition: stroke-dashoffset 0.1s linear;
+  filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.8));
+}
+
+.demo-controls {
+  display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; align-items: center;
+}
+.demo-btn {
+  padding: 10px 22px;
+  background: transparent;
+  border: 1px solid rgba(0,229,255,0.3); color: var(--cyan);
+  font-family: 'Orbitron', sans-serif; font-weight: 600;
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  transition: all .2s; cursor: none;
+}
+.demo-btn:hover { background: rgba(0,229,255,0.08); box-shadow: var(--glow-c); }
+.demo-btn.active { background: rgba(0,229,255,0.15); border-color: var(--cyan); }
+.demo-hint {
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  color: var(--muted); margin-left: auto;
+  display: flex; gap: 20px;
+}
+.demo-hint kbd {
+  background: rgba(255,255,255,0.06); padding: 3px 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  color: var(--text); margin-right: 4px;
+}
+.eye-tracking-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px; margin-left: 8px;
+  border: 1px solid rgba(170,255,0,0.3);
+  background: rgba(170,255,0,0.05);
+  font-family: 'Space Mono', monospace; font-size: 9px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--lime);
+}
+.et-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.et-dot.active { background: var(--lime); animation: livePulse 1s infinite; }
+
+#features { max-width: 1100px; margin: 0 auto; }
+.features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin-top: 60px; }
+.feature-card {
+  background: var(--bg2); padding: 32px;
+  border-top: 2px solid transparent;
+  transition: border-color .3s, background .3s;
+}
+.feature-card:hover { border-top-color: var(--cyan); background: var(--bg3); }
+.feature-icon { width: 48px; height: 48px; margin-bottom: 20px; }
+.feature-card h3 {
+  font-family: 'Orbitron', sans-serif; font-weight: 600;
+  font-size: 13px; letter-spacing: 1px; margin-bottom: 10px;
+}
+.feature-card p { font-size: 14px; line-height: 1.7; color: var(--muted); font-weight: 300; }
+
+#pricing { background: var(--bg1); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.pricing-inner { max-width: 1000px; margin: 0 auto; }
+.pricing-header { text-align: center; margin-bottom: 70px; }
+.pricing-header p { font-size: 17px; color: var(--muted); margin-top: 16px; }
+.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+.pricing-card {
+  background: var(--bg2); padding: 44px 36px;
+  position: relative; overflow: hidden;
+  transition: transform .3s;
+}
+.pricing-card:hover { transform: translateY(-6px); }
+.pricing-card.featured { background: var(--bg3); border: 1px solid rgba(0,229,255,0.3); }
+.pricing-card.featured::before {
+  content: 'MOST POPULAR';
+  position: absolute; top: 16px; right: 16px;
+  font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 3px;
+  color: var(--cyan); padding: 4px 10px; border: 1px solid rgba(0,229,255,0.4);
+  background: rgba(0,229,255,0.08);
+}
+.pricing-card-eye {
+  position: absolute; bottom: -30px; right: -30px;
+  width: 120px; height: 120px; border-radius: 50%;
+  background: conic-gradient(rgba(0,229,255,0.05) 0deg, transparent 180deg, rgba(0,229,255,0.05) 360deg);
+  animation: irisSpin 20s linear infinite;
+  pointer-events: none;
+}
+.pricing-tier {
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  letter-spacing: 4px; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 24px;
+}
+.pricing-price {
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 52px; line-height: 1; margin-bottom: 6px;
+  color: var(--text);
+}
+.pricing-price sup { font-size: 22px; vertical-align: top; margin-top: 12px; color: var(--muted); }
+.pricing-price sub { font-size: 13px; color: var(--muted); font-weight: 400; letter-spacing: 1px; }
+.pricing-unit { font-size: 12px; color: var(--muted); margin-bottom: 28px; letter-spacing: 2px; }
+.pricing-divider { height: 1px; background: var(--border); margin-bottom: 28px; }
+.pricing-features { list-style: none; margin-bottom: 36px; }
+.pricing-features li {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 14px; padding: 8px 0; color: rgba(232,232,248,0.75);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.pricing-features li::before {
+  content: ''; width: 16px; height: 16px; flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' stroke='rgba(0,229,255,0.5)' fill='none'/%3E%3Cpath d='M5 8l2 2 4-4' stroke='%2300e5ff' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat;
+}
+.pricing-cta { display: block; width: 100%; text-align: center; }
+.pricing-card.featured .pricing-price { color: var(--cyan); }
+.pricing-card:nth-child(3) .pricing-price { color: var(--lime); }
+
+#traction { max-width: 1100px; margin: 0 auto; }
+.traction-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+.traction-milestones { display: flex; flex-direction: column; gap: 0; }
+.milestone {
+  display: flex; gap: 24px; position: relative;
+  padding-bottom: 36px;
+}
+.milestone:last-child { padding-bottom: 0; }
+.milestone::before {
+  content: ''; position: absolute; left: 14px; top: 36px;
+  width: 1px; height: calc(100% - 10px);
+  background: linear-gradient(to bottom, var(--border), transparent);
+}
+.milestone:last-child::before { display: none; }
+.milestone-dot {
+  width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%;
+  border: 2px solid var(--accent, var(--cyan));
+  background: var(--bg0); position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 15px var(--accent, var(--cyan));
+}
+.milestone:nth-child(2) { --accent: var(--lime); }
+.milestone:nth-child(3) { --accent: var(--gold); }
+.milestone:nth-child(4) { --accent: var(--muted); }
+.milestone-dot-inner {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent, var(--cyan));
+}
+.milestone-content h4 {
+  font-family: 'Orbitron', sans-serif; font-weight: 700;
+  font-size: 13px; letter-spacing: 1px; margin-bottom: 6px;
+  color: var(--accent, var(--cyan));
+}
+.milestone-content p { font-size: 14px; color: var(--muted); line-height: 1.6; font-weight: 300; }
+.milestone-content time {
+  font-family: 'Space Mono', monospace; font-size: 9px;
+  letter-spacing: 3px; color: rgba(104,104,160,0.6);
+  text-transform: uppercase;
+}
+.traction-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.traction-stat {
+  background: var(--bg2); padding: 28px;
+  border-left: 2px solid var(--accent, var(--cyan));
+}
+.traction-stat:nth-child(2) { --accent: var(--lime); }
+.traction-stat:nth-child(3) { --accent: var(--gold); }
+.traction-stat:nth-child(4) { --accent: var(--red); }
+.traction-stat-n {
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 32px; color: var(--accent, var(--cyan));
+  text-shadow: 0 0 20px var(--accent, rgba(0,229,255,0.4));
+  margin-bottom: 6px;
+}
+.traction-stat-l { font-size: 12px; color: var(--muted); letter-spacing: 1px; font-weight: 300; }
+
+#team { background: var(--bg1); border-top: 1px solid var(--border); }
+.team-inner { max-width: 1000px; margin: 0 auto; }
+.team-header { text-align: center; margin-bottom: 70px; }
+.team-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; max-width: 900px; margin: 0 auto; }
+.team-card {
+  background: var(--bg2); padding: 44px;
+  border: 1px solid var(--border);
+  position: relative; overflow: hidden;
+  transition: border-color .3s, transform .3s;
+}
+.team-card:hover { border-color: rgba(0,229,255,0.4); transform: translateY(-4px); }
+.team-card-scan {
+  position: absolute; top: 0; left: -100%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0,229,255,0.04), transparent);
+  pointer-events: none;
+}
+.team-card:hover .team-card-scan { animation: scanPass .7s ease; }
+@keyframes scanPass { to { left: 120%; } }
+.team-avatar {
+  width: 72px; height: 72px; border-radius: 50%; margin-bottom: 20px;
+  position: relative; overflow: hidden;
+  border: 2px solid rgba(0,229,255,0.3);
+}
+.team-avatar-img {
+  width: 100%; height: 100%;
+  background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 22px; color: var(--cyan);
+}
+.team-avatar-scan {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 3px,
+    rgba(0,229,255,0.03) 3px, rgba(0,229,255,0.03) 4px
+  );
+}
+.team-name {
+  font-family: 'Orbitron', sans-serif; font-weight: 700;
+  font-size: 14px; letter-spacing: 1px; margin-bottom: 4px;
+}
+.team-role {
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: var(--cyan); margin-bottom: 16px;
+}
+.team-bio { font-size: 14px; color: var(--muted); line-height: 1.7; font-weight: 300; }
+
+#cta-banner {
+  padding: 80px 48px; text-align: center;
+  background: linear-gradient(135deg, rgba(0,229,255,0.05) 0%, var(--bg0) 50%, rgba(170,255,0,0.05) 100%);
+  border-top: 1px solid var(--border);
+  position: relative; overflow: hidden;
+}
+.cta-banner-glow {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 600px; height: 300px;
+  background: radial-gradient(ellipse, rgba(0,229,255,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+#cta-banner h2 {
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: clamp(28px, 4vw, 48px); margin-bottom: 16px;
+  position: relative;
+}
+#cta-banner p { font-size: 17px; color: var(--muted); margin-bottom: 36px; position: relative; }
+.cta-store-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; position: relative; }
+
+footer {
+  padding: 48px; background: var(--bg0);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 20px;
+}
+.footer-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 18px; letter-spacing: 4px;
+}
+.footer-links {
+  display: flex; gap: 32px; list-style: none;
+}
+.footer-links a {
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  transition: color .2s;
+}
+.footer-links a:hover { color: var(--cyan); }
+.footer-copy {
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  letter-spacing: 1px; color: rgba(104,104,160,0.5);
+}
+
+.eye-icon-anim circle { animation: eyePupilPulse 3s ease-in-out infinite; }
+@keyframes eyePupilPulse {
+  0%,100% { r: 4; }
+  50% { r: 6; }
+}
+
+.scanlines {
+  position: fixed; inset: 0; pointer-events: none; z-index: 9000;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+  );
+}
+.corner-bracket {
+  position: fixed; width: 40px; height: 40px;
+  pointer-events: none; z-index: 8999; opacity: 0.5;
+}
+.corner-bracket-tl { top: 16px; left: 16px; border-top: 1px solid var(--cyan); border-left: 1px solid var(--cyan); }
+.corner-bracket-tr { top: 16px; right: 16px; border-top: 1px solid var(--cyan); border-right: 1px solid var(--cyan); }
+.corner-bracket-bl { bottom: 16px; left: 16px; border-bottom: 1px solid var(--cyan); border-left: 1px solid var(--cyan); }
+.corner-bracket-br { bottom: 16px; right: 16px; border-bottom: 1px solid var(--cyan); border-right: 1px solid var(--cyan); }
+
+#loading-screen {
+  position: fixed; inset: 0; z-index: 99999;
+  background: var(--bg0);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 24px; transition: opacity .6s ease;
+}
+#loading-screen.fade-out { opacity: 0; pointer-events: none; }
+.loading-logo {
+  font-family: 'Orbitron', sans-serif; font-weight: 900;
+  font-size: 32px; letter-spacing: 8px; color: var(--cyan);
+  text-shadow: 0 0 30px rgba(0,229,255,0.6);
+}
+.loading-bar-wrap { width: 200px; height: 2px; background: rgba(0,229,255,0.15); }
+.loading-bar { height: 100%; background: var(--cyan); width: 0%; transition: width .1s; box-shadow: 0 0 10px var(--cyan); }
+.loading-text {
+  font-family: 'Space Mono', monospace; font-size: 9px;
+  letter-spacing: 4px; text-transform: uppercase; color: var(--muted);
+}
+.loading-iris {
+  width: 80px; height: 80px; position: relative;
+}
+.loading-iris-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 1px solid rgba(0,229,255,0.3);
+  animation: orbitSpin 3s linear infinite;
+}
+.loading-iris-ring:nth-child(2) { inset: 10px; animation-duration: 2s; animation-direction: reverse; border-color: rgba(170,255,0,0.2); }
+.loading-iris-ring:nth-child(3) { inset: 20px; animation-duration: 1.5s; border-color: rgba(0,229,255,0.4); }
+.loading-iris-center {
+  position: absolute; inset: 30px; border-radius: 50%;
+  background: var(--cyan); box-shadow: 0 0 20px var(--cyan);
+  animation: eyePupilPulse 1.5s ease-in-out infinite;
+}
+
+@media (max-width: 768px) {
+  nav { padding: 16px 20px; }
+  .nav-links { display: none; }
+  section { padding: 70px 20px; }
+  .stats-grid, .how-steps, .pricing-grid, .features-grid { grid-template-columns: 1fr; }
+  .traction-grid { grid-template-columns: 1fr; }
+  .team-grid { grid-template-columns: 1fr; }
+  .hero-eye { width: 280px; height: 280px; }
+  .iris-container { width: 130px; height: 130px; }
+  .iris-ring-1 { width: 110px; height: 110px; }
+  .iris-ring-2 { width: 85px; height: 85px; }
+  .iris-ring-3 { width: 60px; height: 60px; }
+  .pupil-wrap { width: 44px; height: 44px; }
+  footer { flex-direction: column; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="loading-iris">
+    <div class="loading-iris-ring"></div>
+    <div class="loading-iris-ring"></div>
+    <div class="loading-iris-ring"></div>
+    <div class="loading-iris-center"></div>
+  </div>
+  <div class="loading-logo">SPANTHER</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loading-bar"></div></div>
+  <div class="loading-text" id="loading-text">Initializing neural systems...</div>
+</div>
+
+<div class="scanlines"></div>
+<div class="corner-bracket corner-bracket-tl"></div>
+<div class="corner-bracket corner-bracket-tr"></div>
+<div class="corner-bracket corner-bracket-bl"></div>
+<div class="corner-bracket corner-bracket-br"></div>
+
+<div id="cursor-dot"></div>
+<div id="cursor-ring"></div>
+
+<nav id="navbar">
+  <a href="#" class="nav-logo" aria-label="SPANTHER">
+    <svg class="nav-logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="20,2 38,14 38,32 20,38 2,32 2,14" fill="none" stroke="rgba(0,229,255,0.5)" stroke-width="1"/>
+      <circle cx="14" cy="18" r="6" fill="none" stroke="#00e5ff" stroke-width="1.5"/>
+      <circle cx="14" cy="18" r="3" fill="rgba(0,229,255,0.3)"/>
+      <circle cx="26" cy="18" r="6" fill="none" stroke="#00e5ff" stroke-width="1.5"/>
+      <circle cx="26" cy="18" r="3" fill="rgba(0,229,255,0.3)"/>
+      <line x1="8" y1="11" x2="14" y2="18" stroke="rgba(0,229,255,0.4)" stroke-width="1"/>
+      <line x1="32" y1="11" x2="26" y2="18" stroke="rgba(0,229,255,0.4)" stroke-width="1"/>
+      <line x1="20" y1="2" x2="20" y2="10" stroke="rgba(0,229,255,0.3)" stroke-width="1"/>
+      <path d="M14 28 Q20 33 26 28" stroke="rgba(0,229,255,0.4)" stroke-width="1.5" fill="none"/>
+    </svg>
+    SPANTHER
+  </a>
+  <ul class="nav-links">
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#demo">Live Demo</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#team">Team</a></li>
+  </ul>
+  <a href="#demo" class="nav-cta">Try Demo</a>
+</nav>
+
+<section id="hero">
+  <canvas id="particle-canvas"></canvas>
+  <div class="hero-bg-grid"></div>
+  <div class="hero-vignette"></div>
+
+  <div class="hero-eye-wrap">
+    <div class="hero-eye">
+      <div class="eye-orbit"></div>
+      <div class="eye-orbit"></div>
+      <div class="eye-orbit"></div>
+      <div class="iris-container">
+        <div class="iris-bg"></div>
+        <div class="iris-spokes"></div>
+        <div class="iris-ring iris-ring-1"></div>
+        <div class="iris-ring iris-ring-2"></div>
+        <div class="iris-ring iris-ring-3"></div>
+        <div class="pupil-wrap" id="hero-pupil">
+          <div class="pupil-inner"></div>
+          <div class="pupil-shine"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="float-eyes-container"></div>
+
+  <div class="hero-content">
+    <div class="hero-tag">Focus · Attention · Performance</div>
+    <h1 class="hero-h1">
+      <span class="cyan">YOUR</span> EYES.<br>
+      <span class="lime">YOUR</span> WEAPON.
+    </h1>
+    <p class="hero-sub">Train attention. Weaponize your gaze.</p>
+    <p class="hero-desc">The neuroscience-backed mobile game that turns your focus into firepower — and turns distraction into your greatest enemy.</p>
+    <div class="hero-ctas">
+      <a href="#demo" class="btn-primary" style="padding:14px 32px;font-size:12px">▶ Try Live Demo</a>
+    </div>
+  </div>
+
+  <div class="scroll-hint">
+    <span>SCROLL</span>
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<div class="eye-divider">
+  <div class="eye-divider-icon">
+    <svg viewBox="0 0 28 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1 10 C7 2 21 2 27 10 C21 18 7 18 1 10Z" stroke="rgba(0,229,255,0.5)" stroke-width="1.2" fill="rgba(0,229,255,0.03)"/>
+      <circle cx="14" cy="10" r="4.5" stroke="rgba(0,229,255,0.7)" stroke-width="1.2" fill="rgba(0,229,255,0.08)"/>
+      <circle cx="14" cy="10" r="2" fill="rgba(0,229,255,0.8)"/>
+      <circle cx="15.5" cy="8.5" r="0.8" fill="white" opacity="0.6"/>
+    </svg>
+  </div>
+</div>
+
+<section id="stats">
+  <div class="stats-inner">
+    <div class="stats-header reveal">
+      <div class="section-label">The Crisis</div>
+      <h2 class="section-h2">The Human Attention <em>Emergency</em></h2>
+      <p>We are living through the greatest collapse of human focus in recorded history — and the economy is paying for it.</p>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card reveal" style="transition-delay:.1s">
+        <div class="stat-number" data-target="8">0</div>
+        <div class="stat-label">seconds</div>
+        <div class="stat-desc">Average human attention span in 2024 — down from 12 seconds in 2000. A goldfish holds focus longer than you do.</div>
+        <div class="stat-bg-char">8s</div>
+      </div>
+      <div class="stat-card reveal" style="transition-delay:.2s">
+        <div class="stat-number" data-target="7">0</div>
+        <div class="stat-label">hours / day</div>
+        <div class="stat-desc">Average daily screen time. We are training our brains to scatter — and calling it productivity.</div>
+        <div class="stat-bg-char">7h</div>
+      </div>
+      <div class="stat-card reveal" style="transition-delay:.3s">
+        <div class="stat-number" data-target="1">0</div>
+        <div class="stat-label">trillion USD lost</div>
+        <div class="stat-desc">Estimated annual economic cost of workplace distraction and attention-deficit disorders globally.</div>
+        <div class="stat-bg-char">$T</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="eye-divider" style="transform: scaleX(-1)">
+  <div class="eye-divider-icon">
+    <svg viewBox="0 0 28 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1 10 C7 2 21 2 27 10 C21 18 7 18 1 10Z" stroke="rgba(170,255,0,0.4)" stroke-width="1.2" fill="rgba(170,255,0,0.02)"/>
+      <circle cx="14" cy="10" r="4.5" stroke="rgba(170,255,0,0.6)" stroke-width="1.2" fill="rgba(170,255,0,0.06)"/>
+      <circle cx="14" cy="10" r="2" fill="rgba(170,255,0,0.7)"/>
+      <circle cx="15.5" cy="8.5" r="0.8" fill="white" opacity="0.5"/>
+    </svg>
+  </div>
+</div>
+
+<section id="how">
+  <div class="how-header reveal">
+    <div class="section-label">The Mechanic</div>
+    <h2 class="section-h2">Train With Your <em>Gaze</em></h2>
+    <p style="font-size:16px;color:var(--muted);line-height:1.7;margin-top:12px;font-weight:300;">SPANTHER uses real eye-tracking technology to turn your attentional capacity into a game mechanic — then progressively trains it to be stronger.</p>
+  </div>
+  <div class="how-steps">
+    <div class="how-step reveal" style="transition-delay:.1s">
+      <div class="step-num">01 ///</div>
+      <div class="step-icon">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <circle cx="32" cy="32" r="30" stroke="rgba(0,229,255,0.2)" stroke-width="1"/>
+          <path d="M4 32 C16 10 48 10 60 32 C48 54 16 54 4 32Z" stroke="#00e5ff" stroke-width="1.5" fill="none"/>
+          <circle cx="32" cy="32" r="10" stroke="#00e5ff" stroke-width="1.5" fill="rgba(0,229,255,0.08)"/>
+          <circle cx="32" cy="32" r="4" fill="#00e5ff" class="eye-icon-anim"/>
+          <line x1="32" y1="2" x2="32" y2="18" stroke="rgba(0,229,255,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
+          <line x1="32" y1="46" x2="32" y2="62" stroke="rgba(0,229,255,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
+          <circle cx="34" cy="29" r="2" fill="white" opacity="0.5"/>
+        </svg>
+      </div>
+      <h3 class="step-h3">LOOK & AIM</h3>
+      <p class="step-desc">Your gaze is your targeting system. Direct your eyes at incoming asteroids to lock on. The eye-tracking SDK maps precisely where your attention lands.</p>
+      <div class="step-connector"></div>
+    </div>
+    <div class="how-step reveal" style="transition-delay:.2s">
+      <div class="step-num">02 ///</div>
+      <div class="step-icon">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <circle cx="32" cy="32" r="30" stroke="rgba(170,255,0,0.2)" stroke-width="1"/>
+          <circle cx="32" cy="32" r="20" stroke="rgba(170,255,0,0.15)" stroke-width="1" stroke-dasharray="4 4"/>
+          <path d="M32 2 A30 30 0 0 1 62 32" stroke="#aaff00" stroke-width="2" stroke-linecap="round"/>
+          <path d="M32 2 A30 30 0 0 1 54 54" stroke="rgba(170,255,0,0.3)" stroke-width="1.5"/>
+          <circle cx="32" cy="32" r="8" fill="rgba(170,255,0,0.15)" stroke="#aaff00" stroke-width="1.5"/>
+          <circle cx="32" cy="32" r="3" fill="#aaff00"/>
+          <text x="32" y="58" text-anchor="middle" fill="rgba(170,255,0,0.5)" font-size="8" font-family="Space Mono">FOCUS</text>
+        </svg>
+      </div>
+      <h3 class="step-h3" style="color:var(--lime)">HOLD & CHARGE</h3>
+      <p class="step-desc">Sustained focus is your power source. Hold your gaze steady on a target to charge your weapon. Larger asteroids demand deeper, longer concentration.</p>
+      <div class="step-connector"></div>
+    </div>
+    <div class="how-step reveal" style="transition-delay:.3s">
+      <div class="step-num">03 ///</div>
+      <div class="step-icon">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <circle cx="32" cy="32" r="30" stroke="rgba(212,168,83,0.2)" stroke-width="1"/>
+          <path d="M4 32 C16 14 48 14 60 32 C48 50 16 50 4 32Z" stroke="rgba(212,168,83,0.4)" stroke-width="1"/>
+          <path d="M4 32 C16 30 48 30 60 32" stroke="#d4a853" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="32" cy="32" r="6" fill="rgba(212,168,83,0.2)" stroke="#d4a853" stroke-width="1.5"/>
+          <rect x="20" y="30" width="24" height="4" rx="2" fill="rgba(212,168,83,0.5)"/>
+          <path d="M32 20 L28 26 L36 26 Z" fill="rgba(212,168,83,0.7)"/>
+          <text x="32" y="58" text-anchor="middle" fill="rgba(212,168,83,0.5)" font-size="8" font-family="Space Mono">BLINK</text>
+        </svg>
+      </div>
+      <h3 class="step-h3" style="color:var(--gold)">BLINK & RELOAD</h3>
+      <p class="step-desc">A deliberate blink reloads your weapon charges. The game rewards conscious blinking — the natural eye refresh that most screen addicts have forgotten.</p>
+    </div>
+  </div>
+</section>
+
+<div class="eye-divider">
+  <div class="eye-divider-icon">
+    <svg viewBox="0 0 28 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1 10 C7 2 21 2 27 10 C21 18 7 18 1 10Z" stroke="rgba(0,229,255,0.5)" stroke-width="1.2" fill="rgba(0,229,255,0.03)"/>
+      <circle cx="14" cy="10" r="4.5" stroke="rgba(0,229,255,0.7)" stroke-width="1.2" fill="rgba(0,229,255,0.08)"/>
+      <circle cx="14" cy="10" r="2" fill="rgba(0,229,255,0.8)"/>
+      <circle cx="15.5" cy="8.5" r="0.8" fill="white" opacity="0.6"/>
+    </svg>
+  </div>
+</div>
+
+<section id="demo">
+  <div class="demo-inner">
+    <div class="demo-header reveal">
+      <div>
+        <div class="section-label">Live Demo</div>
+        <h2 class="section-h2">See It <em>For Yourself</em></h2>
+        <p style="font-size:15px;color:var(--muted);margin-top:10px;font-weight:300;max-width:400px;">Move your mouse to aim. Hold gaze on asteroids to destroy them. Blink (click/space) to reload.</p>
+      </div>
+      <div class="demo-header-right">
+        <div><span>[ POWERED BY ]</span> Eyedid SDK</div>
+        <div><span>[ PLATFORM ]</span> WebGL + Deep Learning</div>
+        <div><span>[ STATUS ]</span> <span style="color:var(--lime)">LIVE</span> — MVP App</div>
+      </div>
+    </div>
+
+    <div class="demo-arena reveal" style="transition-delay:.2s">
+      <canvas id="game-canvas" width="1024" height="580"></canvas>
+      
+      <div id="calibration-overlay" class="calibration-overlay">
+        <div class="calib-header">
+          <div class="calib-title">КАЛИБРОВКА ВЗГЛЯДА</div>
+          <div class="calib-sub" id="calib-instruction">Посмотрите на точку и нажмите на неё</div>
+        </div>
+        <div class="calib-progress-wrap">
+          <div class="calib-progress-track">
+            <div class="calib-progress-bar" id="calib-progress-bar"></div>
+          </div>
+          <div class="calib-progress-label" id="calib-progress-label">0 / 5</div>
+        </div>
+        <div id="calibration-point" class="calibration-point">
+          <div class="calib-dot-outer"></div>
+          <div class="calib-dot-inner"></div>
+          <div class="calib-dot-shine"></div>
+          <svg class="calib-dot-ring" viewBox="0 0 60 60">
+            <circle class="calib-ring-track" cx="30" cy="30" r="26"/>
+            <circle class="calib-ring-fill" id="calib-ring-fill" cx="30" cy="30" r="26"/>
+          </svg>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="demo-controls">
+      <button class="demo-btn" id="btn-start" onclick="gameAction('start')">▶ START GAME</button>
+      <button class="demo-btn" id="btn-webcam" onclick="enableEyedid()">📷 ENABLE EYE TRACKING</button>
+      <div class="eye-tracking-badge" id="et-badge">
+        <div class="et-dot" id="et-dot"></div>
+        EYE TRACK: <span id="et-status-text">MOUSE MODE</span>
+      </div>
+      <div class="demo-hint">
+        <span><kbd>MOUSE</kbd> Aim</span>
+        <span><kbd>SPACE</kbd> or <kbd>CLICK</kbd> Blink / Reload</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="features reveal">
+    <div class="section-label">Core Features</div>
+    <h2 class="section-h2">Built on <em>Neuroscience</em></h2>
+  </div>
+  <div class="features-grid" style="margin-top:50px">
+    <div class="feature-card reveal" style="transition-delay:.05s">
+      <div class="feature-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect x="1" y="1" width="46" height="46" rx="2" stroke="rgba(0,229,255,0.3)" stroke-width="1"/>
+          <circle cx="24" cy="24" r="12" stroke="#00e5ff" stroke-width="1.5" fill="none"/>
+          <circle cx="24" cy="24" r="5" fill="rgba(0,229,255,0.3)" stroke="#00e5ff" stroke-width="1"/>
+          <path d="M24 6 L24 12 M24 36 L24 42 M6 24 L12 24 M36 24 L42 24" stroke="rgba(0,229,255,0.5)" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h3>Eye Tracking Engine</h3>
+      <p>Sub-millisecond gaze capture via Eyedid / SeeSo SDK. Clinically-validated accuracy maps your exact fixation point.</p>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:.1s">
+      <div class="feature-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect x="1" y="1" width="46" height="46" rx="2" stroke="rgba(170,255,0,0.3)" stroke-width="1"/>
+          <path d="M6 32 L14 20 L20 28 L28 14 L34 24 L42 16" stroke="#aaff00" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="14" cy="20" r="2" fill="#aaff00"/>
+          <circle cx="28" cy="14" r="2" fill="#aaff00"/>
+          <circle cx="42" cy="16" r="2" fill="#aaff00"/>
+        </svg>
+      </div>
+      <h3>Adaptive Difficulty</h3>
+      <p>AI adjusts asteroid speed, size, and density to keep you in the optimal cognitive challenge zone — the flow state.</p>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:.15s">
+      <div class="feature-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect x="1" y="1" width="46" height="46" rx="2" stroke="rgba(212,168,83,0.3)" stroke-width="1"/>
+          <circle cx="24" cy="24" r="16" stroke="rgba(212,168,83,0.2)" stroke-width="1" stroke-dasharray="4 4"/>
+          <path d="M24 8 A16 16 0 1 1 23.99 8" stroke="#d4a853" stroke-width="2" fill="none" stroke-dasharray="80 20"/>
+          <text x="24" y="28" text-anchor="middle" fill="#d4a853" font-size="11" font-family="Orbitron" font-weight="700">78%</text>
+        </svg>
+      </div>
+      <h3>Focus Analytics</h3>
+      <p>Detailed session reports show your attention span trends, blink rates, and sustained focus duration over time.</p>
+    </div>
+    <div class="feature-card reveal" style="transition-delay:.2s">
+      <div class="feature-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect x="1" y="1" width="46" height="46" rx="2" stroke="rgba(255,58,92,0.3)" stroke-width="1"/>
+          <rect x="10" y="28" width="6" height="14" fill="rgba(255,58,92,0.3)" stroke="#ff3a5c" stroke-width="1"/>
+          <rect x="21" y="20" width="6" height="22" fill="rgba(255,58,92,0.5)" stroke="#ff3a5c" stroke-width="1"/>
+          <rect x="32" y="12" width="6" height="30" fill="rgba(255,58,92,0.7)" stroke="#ff3a5c" stroke-width="1"/>
+          <path d="M10 26 Q18 14 28 10 L40 8" stroke="#ff3a5c" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h3>Daily Training Protocol</h3>
+      <p>Science-backed 5-minute daily sessions designed to increase attention span by up to 30% over 8 weeks.</p>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="pricing-inner">
+    <div class="pricing-header reveal">
+      <div class="section-label">Pricing</div>
+      <h2 class="section-h2">Start Free. <em>Go Further.</em></h2>
+      <p>No credit card required. Upgrade when you're ready to unlock your full cognitive potential.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="pricing-card reveal" style="transition-delay:.1s">
+        <div class="pricing-card-eye"></div>
+        <div class="pricing-tier">// FREE TIER</div>
+        <div class="pricing-price"><sup>€</sup>0<sub>/mo</sub></div>
+        <div class="pricing-unit">// FOREVER FREE</div>
+        <div class="pricing-divider"></div>
+        <ul class="pricing-features">
+          <li>5 min daily training sessions</li>
+          <li>3 game modes</li>
+          <li>Basic focus score</li>
+          <li>Weekly streak tracking</li>
+          <li>Mouse / touch control mode</li>
+        </ul>
+        <a href="#" class="pricing-cta btn-secondary">Get Started Free</a>
+      </div>
+      <div class="pricing-card featured reveal" style="transition-delay:.2s">
+        <div class="pricing-card-eye"></div>
+        <div class="pricing-tier">// PREMIUM</div>
+        <div class="pricing-price"><sup>€</sup>4<span style="font-size:38px">.99</span><sub>/mo</sub></div>
+        <div class="pricing-unit">// PER USER · BILLED MONTHLY</div>
+        <div class="pricing-divider"></div>
+        <ul class="pricing-features">
+          <li>Unlimited training sessions</li>
+          <li>All 12 game modes</li>
+          <li>Full eye tracking (Eyedid SDK)</li>
+          <li>Detailed attention analytics</li>
+          <li>Adaptive AI difficulty</li>
+          <li>Progress reports & exports</li>
+          <li>Daily challenge missions</li>
+        </ul>
+        <a href="#" class="pricing-cta btn-primary">Start Premium Trial</a>
+      </div>
+      <div class="pricing-card reveal" style="transition-delay:.3s">
+        <div class="pricing-card-eye" style="background: conic-gradient(rgba(170,255,0,0.05) 0deg, transparent 180deg, rgba(170,255,0,0.05) 360deg);"></div>
+        <div class="pricing-tier">// TEAMS</div>
+        <div class="pricing-price" style="color:var(--lime)"><sup>€</sup>9<span style="font-size:38px">.99</span><sub>/mo</sub></div>
+        <div class="pricing-unit">// PER SEAT · MIN 5 SEATS</div>
+        <div class="pricing-divider"></div>
+        <ul class="pricing-features">
+          <li>Everything in Premium</li>
+          <li>Admin dashboard</li>
+          <li>Team performance analytics</li>
+          <li>Group challenge events</li>
+          <li>Custom branding</li>
+          <li>SSO & enterprise auth</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="mailto:team@spanther.app" class="pricing-cta" style="display:block;text-align:center;padding:14px;border:1px solid rgba(170,255,0,0.4);color:var(--lime);font-family:'Orbitron',sans-serif;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;transition:all .2s;clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)">Contact Sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="traction">
+  <div class="traction-grid reveal">
+    <div>
+      <div class="section-label">Traction</div>
+      <h2 class="section-h2">Live. Launched. <em>Growing.</em></h2>
+      <p style="font-size:16px;color:var(--muted);line-height:1.7;margin:16px 0 40px;font-weight:300;">Our MVP is live. We are executing on a clear path to €5,000 Monthly Recurring Revenue within 12 months.</p>
+      <div class="traction-milestones">
+        <div class="milestone">
+          <div class="milestone-dot"><div class="milestone-dot-inner"></div></div>
+          <div class="milestone-content">
+            <time>Q1 2025 // COMPLETE</time>
+            <h4>MVP LAUNCHED</h4>
+            <p>Core game engine live with eye-tracking integration.</p>
+          </div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-dot"><div class="milestone-dot-inner"></div></div>
+          <div class="milestone-content">
+            <time>Q2–Q3 2025 // ACTIVE</time>
+            <h4>USER ACQUISITION & ITERATION</h4>
+            <p>Freemium funnel optimisation, retention loops, and conversion rate testing with first cohort.</p>
+          </div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-dot"><div class="milestone-dot-inner"></div></div>
+          <div class="milestone-content">
+            <time>Q4 2025 // TARGET</time>
+            <h4>€5,000 MRR MILESTONE</h4>
+            <p>~1,000 Premium subscribers at €4.99. Teams pilot with 3 corporate clients.</p>
+          </div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-dot" style="--accent:var(--muted)"><div class="milestone-dot-inner" style="background:var(--muted)"></div></div>
+          <div class="milestone-content">
+            <time>2026 // HORIZON</time>
+            <h4>ENTERPRISE EXPANSION</h4>
+            <p>Teams tier rollout, clinical partnerships, and Series A fundraising.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="traction-stats reveal" style="transition-delay:.2s;align-content:start">
+      <div class="traction-stat">
+        <div class="traction-stat-n">Live</div>
+        <div class="traction-stat-l">Mobile MVP</div>
+      </div>
+      <div class="traction-stat">
+        <div class="traction-stat-n">€4.99</div>
+        <div class="traction-stat-l">Premium / month</div>
+      </div>
+      <div class="traction-stat">
+        <div class="traction-stat-n">€5K</div>
+        <div class="traction-stat-l">MRR goal · 12 months</div>
+      </div>
+      <div class="traction-stat">
+        <div class="traction-stat-n">PhD</div>
+        <div class="traction-stat-l">Neuro science advisor</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="team">
+  <div class="team-inner">
+    <div class="team-header reveal">
+      <div class="section-label">The Team</div>
+      <h2 class="section-h2">Minds Behind <em>The Weapon</em></h2>
+    </div>
+    <div class="team-grid">
+      <div class="team-card reveal" style="transition-delay:.1s">
+        <div class="team-card-scan"></div>
+        <div class="team-avatar">
+          <div class="team-avatar-img">AK</div>
+          <div class="team-avatar-scan"></div>
+        </div>
+        <div class="team-name">Aziz Karatayev</div>
+        <div class="team-role">// CEO & FOUNDER</div>
+        <p class="team-bio">Visionary behind SPANTHER's mission to turn attention into a competitive skill. Combining deep expertise in mobile product development with a passion for cognitive neuroscience and gamified behaviour change.</p>
+      </div>
+      <div class="team-card reveal" style="transition-delay:.2s">
+        <div class="team-card-scan"></div>
+        <div class="team-avatar">
+          <div class="team-avatar-img" style="color:var(--lime)">ME</div>
+          <div class="team-avatar-scan"></div>
+        </div>
+        <div class="team-name">Maksut Ermekuly</div>
+        <div class="team-role" style="color:var(--lime)">// COO</div>
+        <p class="team-bio">Mastermind of operations, ensuring seamless execution and scaling of SPANTHER. Focuses on building robust operational frameworks and optimizing processes for rapid market expansion.</p>
+      </div>
+      <div class="team-card reveal" style="transition-delay:.3s">
+        <div class="team-card-scan"></div>
+        <div class="team-avatar">
+          <div class="team-avatar-img" style="color:var(--gold)">AL</div>
+          <div class="team-avatar-scan"></div>
+        </div>
+        <div class="team-name">Alnur</div>
+        <div class="team-role" style="color:var(--gold)">// CTO</div>
+        <p class="team-bio">Architect of the core eye-tracking engine and adaptive AI. Leads the technical development, bringing proprietary machine learning models and high-performance game mechanics to life.</p>
+      </div>
+      <div class="team-card reveal" style="transition-delay:.4s">
+        <div class="team-card-scan"></div>
+        <div class="team-avatar">
+          <div class="team-avatar-img" style="color:var(--cyan)">OK</div>
+          <div class="team-avatar-scan"></div>
+        </div>
+        <div class="team-name">Oleg Kovalenko</div>
+        <div class="team-role" style="color:var(--cyan)">// INVESTOR RELATIONS</div>
+        <p class="team-bio">Strategic partner connecting SPANTHER with the right capital. Drives funding initiatives, manages investor communications, and ensures the financial roadmap aligns with our global scaling goals.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="cta-banner">
+  <div class="cta-banner-glow"></div>
+  <div class="section-label" style="justify-content:center;margin-bottom:20px">Ready?</div>
+  <h2>Your Attention Is <span style="color:var(--cyan)">Fading.</span><br><span style="color:var(--lime)">Train It.</span></h2>
+  <p>Join SPANTHER. Defend the planet. Reclaim your focus.</p>
+  <div class="cta-store-row">
+    <a href="#demo" class="btn-primary" style="padding:14px 32px;font-size:12px">▶ Try Web Demo</a>
+  </div>
+</section>
+
+<footer>
+  <a href="#" class="footer-logo" aria-label="SPANTHER">
+    <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+      <polygon points="20,2 38,14 38,32 20,38 2,32 2,14" fill="none" stroke="rgba(0,229,255,0.4)" stroke-width="1"/>
+      <circle cx="14" cy="18" r="5" fill="none" stroke="#00e5ff" stroke-width="1.2"/>
+      <circle cx="14" cy="18" r="2" fill="rgba(0,229,255,0.5)"/>
+      <circle cx="26" cy="18" r="5" fill="none" stroke="#00e5ff" stroke-width="1.2"/>
+      <circle cx="26" cy="18" r="2" fill="rgba(0,229,255,0.5)"/>
+      <path d="M14 26 Q20 31 26 26" stroke="rgba(0,229,255,0.4)" stroke-width="1.5" fill="none"/>
+    </svg>
+    SPANTHER
+  </a>
+  <ul class="footer-links">
+    <li><a href="#">Privacy</a></li>
+    <li><a href="#">Terms</a></li>
+    <li><a href="mailto:hello@spanther.app">Contact</a></li>
+    <li><a href="#">Press</a></li>
+  </ul>
+  <div class="footer-copy">© 2025 SPANTHER. All rights reserved. Train your gaze.</div>
+</footer>
+
+<script>
+const EYEDID_LICENSE_KEY = 'dev_vomgbdwty4v12rof7kvc3v1oxz6971qwusu5qtle';
+
+(function() {
+  const bar = document.getElementById('loading-bar');
+  const txt = document.getElementById('loading-text');
+  const messages = [
+    'Initializing neural systems...',
+    'Calibrating eye sensors...',
+    'Loading asteroid field...',
+    'Charging focus weapon...',
+    'Deploying orbital defense...',
+  ];
+  let pct = 0, msgIdx = 0;
+  const interval = setInterval(() => {
+    pct += Math.random() * 22 + 8;
+    if (pct >= 100) { pct = 100; clearInterval(interval); }
+    bar.style.width = pct + '%';
+    if (pct > (msgIdx + 1) * 20) {
+      msgIdx = Math.min(msgIdx + 1, messages.length - 1);
+      txt.textContent = messages[msgIdx];
+    }
+    if (pct >= 100) {
+      setTimeout(() => {
+        const ls = document.getElementById('loading-screen');
+        ls.classList.add('fade-out');
+        setTimeout(() => ls.remove(), 700);
+      }, 400);
+    }
+  }, 160);
+})();
+
+const dot = document.getElementById('cursor-dot');
+const ring = document.getElementById('cursor-ring');
+let mx = 0, my = 0, rx = 0, ry = 0;
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+function animCursor() {
+  dot.style.left = mx + 'px'; dot.style.top = my + 'px';
+  rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12;
+  ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+  requestAnimationFrame(animCursor);
+}
+animCursor();
+document.querySelectorAll('a,button,.demo-btn,.pricing-cta,.btn-primary,.btn-secondary,.store-badge,.nav-cta').forEach(el => {
+  el.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
+  el.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
+});
+
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+  navbar.classList.toggle('scrolled', window.scrollY > 60);
+});
+
+const reveals = document.querySelectorAll('.reveal');
+const revealObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.12 });
+reveals.forEach(r => revealObs.observe(r));
+
+function animateCounter(el, target, suffix, duration) {
+  let start = null;
+  function step(ts) {
+    if (!start) start = ts;
+    const progress = Math.min((ts - start) / duration, 1);
+    const val = Math.floor(progress * target);
+    el.textContent = val + (val === target ? suffix : '');
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+const counterObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const el = e.target;
+      const target = parseInt(el.dataset.target);
+      const suffixes = ['', '', '+'];
+      const idx = [...document.querySelectorAll('.stat-number')].indexOf(el);
+      animateCounter(el, target, suffixes[idx] || '', 1800);
+      counterObs.unobserve(el);
+    }
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('.stat-number[data-target]').forEach(el => counterObs.observe(el));
+
+(function() {
+  const canvas = document.getElementById('particle-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [], mouseX = 0, mouseY = 0;
+
+  function resize() {
+    W = canvas.width = canvas.offsetWidth;
+    H = canvas.height = canvas.offsetHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  document.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+  });
+
+  class Particle {
+    constructor() { this.reset(); }
+    reset() {
+      this.x = Math.random() * W;
+      this.y = Math.random() * H;
+      this.baseX = this.x; this.baseY = this.y;
+      this.size = Math.random() * 2 + 0.5;
+      this.opacity = Math.random() * 0.5 + 0.1;
+      this.speed = Math.random() * 0.3 + 0.1;
+      this.angle = Math.random() * Math.PI * 2;
+      this.isEye = Math.random() < 0.012;
+    }
+    update() {
+      const dx = mouseX - this.x, dy = mouseY - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 120) {
+        const force = (120 - dist) / 120;
+        this.x -= (dx / dist) * force * 2.5;
+        this.y -= (dy / dist) * force * 2.5;
+      } else {
+        this.x += (this.baseX - this.x) * 0.02;
+        this.y += (this.baseY - this.y) * 0.02;
+      }
+      this.angle += 0.008;
+      this.baseX += Math.sin(this.angle) * this.speed * 0.3;
+      this.baseY += Math.cos(this.angle) * this.speed * 0.2;
+      if (this.baseX < 0) this.baseX = W; if (this.baseX > W) this.baseX = 0;
+      if (this.baseY < 0) this.baseY = H; if (this.baseY > H) this.baseY = 0;
+    }
+    draw(ctx) {
+      if (this.isEye) {
+        const t = Date.now() * 0.001;
+        const blink = Math.sin(t * 0.7 + this.baseX * 0.01) > 0.92;
+        ctx.save();
+        ctx.globalAlpha = this.opacity * 0.8;
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 0.8;
+        const ew = 12, eh = blink ? 1 : 7;
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, ew, eh, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        if (!blink) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0,229,255,0.5)';
+          ctx.fill();
+        }
+        ctx.restore();
+      } else {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,229,255,${this.opacity})`;
+        ctx.fill();
+      }
+    }
+  }
+
+  for (let i = 0; i < 180; i++) particles.push(new Particle());
+
+  function drawConnections() {
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 90) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = `rgba(0,229,255,${(1 - dist / 90) * 0.08})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(p => { p.update(); p.draw(ctx); });
+    drawConnections();
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+(function() {
+  const pupil = document.getElementById('hero-pupil');
+  const heroSection = document.getElementById('hero');
+  document.addEventListener('mousemove', (e) => {
+    const rect = heroSection.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    const maxDist = 22;
+    const angle = Math.atan2(dy, dx);
+    const dist = Math.min(Math.sqrt(dx * dx + dy * dy) / 8, maxDist);
+    pupil.style.transform = `translate(calc(-50% + ${Math.cos(angle) * dist}px), calc(-50% + ${Math.sin(angle) * dist}px))`;
+  });
+})();
+
+(function() {
+  const container = document.getElementById('float-eyes-container');
+  const positions = [
+    [8,15],[88,20],[15,70],[85,65],[50,5],[20,45],[75,35],[92,80],[5,90],[60,88]
+  ];
+  positions.forEach(([lp, tp], i) => {
+    const el = document.createElement('div');
+    el.className = 'float-eye';
+    el.style.left = lp + '%'; el.style.top = tp + '%';
+    el.style.setProperty('--dur', (7 + Math.random() * 6) + 's');
+    el.style.setProperty('--delay', (Math.random() * 4) + 's');
+    el.innerHTML = `<svg viewBox="0 0 32 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1 10 C8 2 24 2 31 10 C24 18 8 18 1 10Z" stroke="rgba(0,229,255,0.6)" stroke-width="1" fill="rgba(0,229,255,0.04)"/>
+      <circle cx="16" cy="10" r="5" stroke="rgba(0,229,255,0.5)" stroke-width="1" fill="rgba(0,229,255,0.06)"/>
+      <circle cx="16" cy="10" r="2.5" fill="rgba(0,229,255,0.7)"/>
+      <circle cx="17.5" cy="8.5" r="1" fill="white" opacity="0.5"/>
+    </svg>`;
+    container.appendChild(el);
+  });
+})();
+
+class SpantherGame {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.W = canvas.width; this.H = canvas.height;
+    this.state = 'idle';
+    this.score = 0; this.wave = 1; this.charges = 3; this.maxCharges = 3;
+    this.gazeX = this.W / 2; this.gazeY = this.H / 2;
+    this.useEyeTracking = false;
+    this.planet = { x: this.W / 2, y: this.H / 2, radius: 42, health: 100, maxHealth: 100, shield: 100, maxShield: 100, angle: 0 };
+    this.asteroids = []; this.particles = []; this.stars = [];
+    this.beams = [];
+    this.targetingAsteroid = null; this.targetingProgress = 0;
+    this.blinkCooldown = 0; this.screenShake = 0;
+    this.spawnTimer = 0; this.lastTime = 0; this.waveScoreThreshold = 80;
+    this.explosionRings = [];
+    this.initStars();
+    this.initEvents();
+    this.loop(0); 
+  }
+
+  initStars() {
+    for (let i = 0; i < 250; i++) {
+      this.stars.push({
+        x: Math.random() * this.W, y: Math.random() * this.H,
+        size: Math.random() * 1.8 + 0.2,
+        op: Math.random() * 0.7 + 0.2,
+        twinkle: Math.random() * Math.PI * 2,
+        twinkleSpeed: Math.random() * 0.03 + 0.005
+      });
+    }
+  }
+
+  initEvents() {
+    this.canvas.addEventListener('mousemove', (e) => {
+      if(this.useEyeTracking) return;
+      const r = this.canvas.getBoundingClientRect();
+      const sx = this.W / r.width, sy = this.H / r.height;
+      this.gazeX = (e.clientX - r.left) * sx;
+      this.gazeY = (e.clientY - r.top) * sy;
+    });
+    const blinkHandler = (e) => {
+      if (e.code === 'Space') { e.preventDefault(); this.doBlink(); }
+    };
+    document.addEventListener('keydown', blinkHandler);
+    this.canvas.addEventListener('click', () => {
+      if (this.state === 'playing') this.doBlink();
+      else this.startGame();
+    });
+  }
+
+  setGaze(x, y) { 
+    if(!this.useEyeTracking) return;
+    this.gazeX += (x - this.gazeX) * 0.4;
+    this.gazeY += (y - this.gazeY) * 0.4;
+  }
+
+  doBlink() {
+    if (this.state !== 'playing') return;
+    if (this.blinkCooldown > 0) return;
+    if (this.charges < this.maxCharges) {
+      this.charges = Math.min(this.charges + 1, this.maxCharges);
+      this.blinkCooldown = 900;
+      this.addReloadRing();
+    }
+  }
+
+  startGame() {
+    this.state = 'playing';
+    this.score = 0; this.wave = 1; this.charges = 3;
+    this.asteroids = []; this.particles = []; this.beams = []; this.explosionRings = [];
+    this.planet.health = 100; this.planet.shield = 100;
+    this.spawnTimer = 0; this.lastTime = performance.now();
+    this.waveScoreThreshold = 80;
+  }
+
+  spawnAsteroid() {
+    const side = Math.floor(Math.random() * 4);
+    const m = 50;
+    let x, y;
+    if (side === 0) { x = Math.random() * this.W; y = -m; }
+    else if (side === 1) { x = this.W + m; y = Math.random() * this.H; }
+    else if (side === 2) { x = Math.random() * this.W; y = this.H + m; }
+    else { x = -m; y = Math.random() * this.H; }
+
+    const w = this.wave;
+    const r = Math.random();
+    let size;
+    if (r < 0.55 - w * 0.03) size = 'small';
+    else if (r < 0.85) size = 'medium';
+    else size = 'large';
+
+    const d = { small: {r:16,ft:900,spd:0.038,pts:10}, medium: {r:27,ft:1800,spd:0.022,pts:25}, large: {r:43,ft:3000,spd:0.013,pts:50} }[size];
+    const angle = Math.atan2(this.planet.y - y, this.planet.x - x) + (Math.random() - 0.5) * 0.3;
+    const spd = d.spd * (0.8 + Math.random() * 0.4 + w * 0.04);
+
+    this.asteroids.push({
+      x, y, vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+      radius: d.r, focusTime: d.ft, focusProgress: 0,
+      points: d.pts, size,
+      angle: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.0025,
+      craters: Array.from({length: Math.ceil(d.r/9)}, () => ({
+        x: (Math.random()-.5)*d.r*1.2, y: (Math.random()-.5)*d.r*1.2, r: Math.random()*d.r*.22+2
+      })),
+      glowing: false, id: Math.random()
+    });
+  }
+
+  addExplosion(x, y, color, size) {
+    const n = Math.ceil(size * 2.2);
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 / n) * i + Math.random() * 0.5;
+      const spd = Math.random() * 0.18 + 0.04;
+      this.particles.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, size: Math.random()*4+1, color, life: 700+Math.random()*400, maxLife: 1100, op: 1 });
+    }
+    this.explosionRings.push({ x, y, r: size * 0.5, maxR: size * 3.5, color, life: 500, maxLife: 500 });
+  }
+
+  addReloadRing() {
+    const n = 24;
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 / n) * i;
+      const r = this.planet.radius + 15 + Math.random() * 15;
+      this.particles.push({ x: this.planet.x + Math.cos(a)*r, y: this.planet.y + Math.sin(a)*r, vx: Math.cos(a)*0.06, vy: Math.sin(a)*0.06, size: 2.5, color: '#aaff00', life: 600, maxLife: 600, op: 1 });
+    }
+    this.beams.push({ x: this.planet.x, y: this.planet.y, color: '#aaff00', life: 300, maxLife: 300 });
+  }
+
+  update(dt) {
+    if (this.blinkCooldown > 0) this.blinkCooldown -= dt;
+    this.spawnTimer += dt;
+    this.screenShake *= 0.88;
+    this.planet.angle += 0.0002 * dt;
+    if (this.planet.shield < this.planet.maxShield) this.planet.shield = Math.min(this.planet.maxShield, this.planet.shield + 0.005 * dt);
+
+    const spawnInterval = Math.max(1100, 3200 - this.wave * 180);
+    if (this.spawnTimer >= spawnInterval) {
+      this.spawnTimer = 0;
+      const count = Math.min(1 + Math.floor(this.wave / 2), 4);
+      for (let i = 0; i < count; i++) setTimeout(() => this.spawnAsteroid(), i * 600);
+    }
+
+    let closest = null, closestDist = Infinity;
+    for (const a of this.asteroids) {
+      const d = Math.hypot(a.x - this.gazeX, a.y - this.gazeY);
+      if (d < Math.max(a.radius + 36, 55) && d < closestDist) { closest = a; closestDist = d; }
+    }
+
+    for (const a of this.asteroids) {
+      if (a === closest && this.charges > 0) {
+        a.glowing = true;
+        a.focusProgress = Math.min(a.focusTime, a.focusProgress + dt);
+        this.targetingAsteroid = a;
+        this.targetingProgress = a.focusProgress / a.focusTime;
+        if (a.focusProgress >= a.focusTime) {
+          this.addExplosion(a.x, a.y, '#00e5ff', a.radius);
+          this.score += a.points;
+          this.asteroids.splice(this.asteroids.indexOf(a), 1);
+          this.charges--;
+          this.targetingAsteroid = null; this.targetingProgress = 0;
+          if (this.score >= this.waveScoreThreshold) { this.wave++; this.waveScoreThreshold += 80 + this.wave * 30; }
+          break;
+        }
+      } else {
+        a.glowing = false;
+        a.focusProgress = Math.max(0, a.focusProgress - dt * 0.4);
+        if (a !== closest) { this.targetingAsteroid = null; this.targetingProgress = 0; }
+      }
+    }
+
+    for (let i = this.asteroids.length - 1; i >= 0; i--) {
+      const a = this.asteroids[i];
+      a.x += a.vx * dt; a.y += a.vy * dt; a.angle += a.rotSpeed * dt;
+      const d = Math.hypot(a.x - this.planet.x, a.y - this.planet.y);
+      if (d < this.planet.radius + a.radius - 8) {
+        this.addExplosion(a.x, a.y, '#ff3a5c', a.radius);
+        this.asteroids.splice(i, 1);
+        this.screenShake = 18;
+        if (this.planet.shield > 0) this.planet.shield = Math.max(0, this.planet.shield - 28);
+        else { this.planet.health -= 28; if (this.planet.health <= 0) { this.state = 'gameover'; return; } }
+      }
+    }
+
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.life -= dt; p.op = p.life / p.maxLife; p.size *= 0.998;
+      if (p.life <= 0) this.particles.splice(i, 1);
+    }
+    for (let i = this.explosionRings.length - 1; i >= 0; i--) {
+      const r = this.explosionRings[i];
+      r.life -= dt; r.r += (r.maxR - r.r) * 0.08;
+      if (r.life <= 0) this.explosionRings.splice(i, 1);
+    }
+    for (let i = this.beams.length - 1; i >= 0; i--) {
+      const b = this.beams[i]; b.life -= dt;
+      if (b.life <= 0) this.beams.splice(i, 1);
+    }
+  }
+
+  render() {
+    const ctx = this.ctx, W = this.W, H = this.H, t = performance.now();
+    ctx.save();
+    if (this.screenShake > 0.5) ctx.translate((Math.random()-.5)*this.screenShake, (Math.random()-.5)*this.screenShake);
+
+    const bgGrad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.7);
+    bgGrad.addColorStop(0, '#04041a'); bgGrad.addColorStop(1, '#010108');
+    ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
+
+    for (const s of this.stars) {
+      s.twinkle += s.twinkleSpeed;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(200,210,255,${s.op * (0.6 + 0.4*Math.sin(s.twinkle))})`;
+      ctx.fill();
+    }
+
+    const nb1 = ctx.createRadialGradient(W*0.8, H*0.2, 0, W*0.8, H*0.2, 180);
+    nb1.addColorStop(0,'rgba(0,50,100,0.06)'); nb1.addColorStop(1,'transparent');
+    ctx.fillStyle = nb1; ctx.fillRect(0,0,W,H);
+    const nb2 = ctx.createRadialGradient(W*0.15, H*0.75, 0, W*0.15, H*0.75, 150);
+    nb2.addColorStop(0,'rgba(60,0,80,0.08)'); nb2.addColorStop(1,'transparent');
+    ctx.fillStyle = nb2; ctx.fillRect(0,0,W,H);
+
+    for (const r of this.explosionRings) {
+      const op = r.life / r.maxLife;
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI*2);
+      ctx.strokeStyle = r.color; ctx.globalAlpha = op * 0.6; ctx.lineWidth = 2.5;
+      ctx.stroke(); ctx.globalAlpha = 1;
+    }
+
+    for (const b of this.beams) {
+      const op = b.life / b.maxLife;
+      ctx.beginPath(); ctx.arc(this.planet.x, this.planet.y, this.planet.radius+30, 0, Math.PI*2);
+      ctx.strokeStyle = b.color; ctx.globalAlpha = op*0.4; ctx.lineWidth = 8;
+      ctx.shadowColor = b.color; ctx.shadowBlur = 20; ctx.stroke();
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+
+    for (const p of this.particles) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      const hex = Math.floor(p.op*255).toString(16).padStart(2,'0');
+      ctx.fillStyle = p.color + hex; ctx.fill();
+    }
+
+    this.drawPlanet(ctx, t);
+    for (const a of this.asteroids) this.drawAsteroid(ctx, a);
+    if (this.targetingAsteroid && this.charges > 0) this.drawBeam(ctx, this.targetingAsteroid);
+    this.drawReticle(ctx, this.gazeX, this.gazeY, t);
+    this.drawHUD(ctx);
+
+    ctx.restore();
+
+    if (this.state === 'idle') this.drawIdle(ctx, t);
+    if (this.state === 'gameover') { this.drawGameOver(ctx); requestAnimationFrame((t)=>this.render()); return; }
+  }
+
+  drawPlanet(ctx, t) {
+    const {x, y, radius, health, maxHealth, shield, maxShield, angle} = this.planet;
+
+    const atm = ctx.createRadialGradient(x, y, radius*0.8, x, y, radius*2.8);
+    atm.addColorStop(0,'rgba(30,80,200,0.15)'); atm.addColorStop(0.5,'rgba(10,40,120,0.06)'); atm.addColorStop(1,'transparent');
+    ctx.fillStyle = atm; ctx.beginPath(); ctx.arc(x, y, radius*2.8, 0, Math.PI*2); ctx.fill();
+
+    const pg = ctx.createRadialGradient(x-radius*0.3, y-radius*0.3, 0, x, y, radius);
+    pg.addColorStop(0,'#5599ff'); pg.addColorStop(0.45,'#2255cc'); pg.addColorStop(0.8,'#112288'); pg.addColorStop(1,'#050e44');
+    ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2);
+    ctx.fillStyle = pg; ctx.fill();
+
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.globalAlpha = 0.45;
+    ctx.fillStyle = '#33bb55';
+    [{ex:-8,ey:-4,ew:17,eh:9,rot:.3},{ex:10,ey:7,ew:12,eh:7,rot:-.4},{ex:-15,ey:10,ew:8,eh:5,rot:.8}].forEach(c => {
+      ctx.beginPath(); ctx.ellipse(c.ex,c.ey,c.ew,c.eh,c.rot,0,Math.PI*2); ctx.fill();
+    });
+    ctx.globalAlpha = 0.2; ctx.fillStyle = '#99eeff';
+    ctx.beginPath(); ctx.ellipse(0,-radius*0.7,radius*0.4,radius*0.2,0,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1; ctx.restore();
+
+    ctx.save(); ctx.translate(x, y);
+    ctx.globalAlpha = 0.15;
+    ctx.strokeStyle = '#88aaff'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.ellipse(0, 0, radius*1.7, radius*0.4, 0.3, 0, Math.PI*2);
+    ctx.stroke(); ctx.globalAlpha = 1; ctx.restore();
+
+    if (shield > 0) {
+      const shieldAlpha = (shield / maxShield) * 0.35 + 0.06;
+      for (let i = 0; i < 2; i++) {
+        ctx.beginPath(); ctx.arc(x, y, radius + 10 + i*4, 0, Math.PI*2);
+        ctx.strokeStyle = `rgba(100,200,255,${shieldAlpha / (i+1)})`; ctx.lineWidth = 2 - i*0.5;
+        ctx.stroke();
+      }
+      ctx.beginPath(); ctx.arc(x, y, radius+10, -Math.PI/2, -Math.PI/2 + (shield/maxShield)*Math.PI*2);
+      ctx.strokeStyle = `rgba(150,220,255,0.7)`; ctx.lineWidth = 2;
+      ctx.shadowColor = '#aaddff'; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
+    }
+
+    const bw = radius*2.8, bh = 5, bx = x-bw/2, by = y+radius+14;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(bx, by, bw, bh);
+    const hc = health > 60 ? '#33ff66' : health > 30 ? '#ffaa00' : '#ff3333';
+    ctx.fillStyle = hc; ctx.fillRect(bx, by, bw*(health/maxHealth), bh);
+    ctx.font = '9px Space Mono, monospace'; ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.textAlign = 'center'; ctx.fillText('SHIELD', x, by+14); ctx.textAlign = 'left';
+  }
+
+  drawAsteroid(ctx, a) {
+    ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(a.angle);
+    if (a.glowing && this.charges > 0) { ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 18 + a.focusProgress/a.focusTime*28; }
+    ctx.beginPath();
+    const sides = a.size==='small'?6:a.size==='medium'?7:8;
+    for (let i = 0; i < sides; i++) {
+      const ang = (Math.PI*2/sides)*i; const jit = 0.68 + Math.sin(i*7.3+a.id*10)*0.32;
+      const r = a.radius * jit;
+      if(i===0) ctx.moveTo(Math.cos(ang)*r, Math.sin(ang)*r);
+      else ctx.lineTo(Math.cos(ang)*r, Math.sin(ang)*r);
+    }
+    ctx.closePath();
+    const colors = {small:'#7a6a55',medium:'#604a35',large:'#4a2a18'};
+    ctx.fillStyle = colors[a.size]; ctx.fill();
+    ctx.strokeStyle = a.glowing ? '#00e5ff' : 'rgba(180,140,90,0.25)';
+    ctx.lineWidth = a.glowing ? 1.5 : 1; ctx.stroke(); ctx.shadowBlur = 0;
+
+    ctx.globalAlpha = 0.25; ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    for (const c of a.craters) { ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+
+    if (a.focusProgress > 0) {
+      const prog = a.focusProgress / a.focusTime;
+      ctx.beginPath(); ctx.arc(0, 0, a.radius+6, -Math.PI/2, -Math.PI/2 + prog*Math.PI*2);
+      ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3;
+      ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.font = `bold ${a.size==='large'?11:9}px Orbitron,monospace`;
+      ctx.fillStyle = '#00e5ff'; ctx.textAlign = 'center';
+      ctx.fillText(Math.ceil((1-prog)*a.focusTime/1000*10)/10+'s', 0, a.radius+22);
+      ctx.textAlign = 'left';
+    }
+    ctx.restore();
+  }
+
+  drawBeam(ctx, a) {
+    const prog = this.targetingProgress;
+    ctx.save();
+    ctx.globalAlpha = 0.25 + prog*0.55;
+    ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 1 + prog*3;
+    ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 10 + prog*25;
+    ctx.setLineDash([6,12]); ctx.lineDashOffset = -(performance.now() * 0.05 % 18);
+    ctx.beginPath(); ctx.moveTo(this.planet.x, this.planet.y); ctx.lineTo(a.x, a.y); ctx.stroke();
+    ctx.setLineDash([]); ctx.shadowBlur = 0; ctx.restore();
+  }
+
+  drawReticle(ctx, x, y, t) {
+    const targeting = this.targetingAsteroid !== null && this.charges > 0;
+    const pulse = 0.7 + 0.3*Math.sin(t * 0.003);
+    ctx.save(); ctx.globalAlpha = pulse * 0.9;
+    ctx.strokeStyle = targeting ? '#00e5ff' : 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = targeting ? 1.8 : 1.2;
+    if (targeting) { ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 12; }
+    const sz = targeting ? 22 : 16, gap = 5;
+    ctx.beginPath();
+    ctx.moveTo(x-sz,y); ctx.lineTo(x-gap,y); ctx.moveTo(x+gap,y); ctx.lineTo(x+sz,y);
+    ctx.moveTo(x,y-sz); ctx.lineTo(x,y-gap); ctx.moveTo(x,y+gap); ctx.lineTo(x,y+sz);
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, sz*0.75, 0, Math.PI*2); ctx.stroke();
+    [[1,1],[-1,1],[-1,-1],[1,-1]].forEach(([sx,sy]) => {
+      const bs = 7;
+      ctx.beginPath();
+      ctx.moveTo(x+sx*sz, y+sy*(sz-bs)); ctx.lineTo(x+sx*sz,y+sy*sz); ctx.lineTo(x+sx*(sz-bs),y+sy*sz);
+      ctx.stroke();
+    });
+    ctx.shadowBlur = 0; ctx.restore();
+  }
+
+  drawHUD(ctx) {
+    const W = this.W, t = performance.now();
+    ctx.save();
+    ctx.font = 'bold 17px Orbitron, monospace'; ctx.fillStyle = '#00e5ff';
+    ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 8;
+    ctx.fillText(`${this.score.toString().padStart(6,'0')}`, 18, 30);
+    ctx.shadowBlur = 0;
+    ctx.font = '700 11px Orbitron, monospace'; ctx.fillStyle = 'rgba(0,229,255,0.5)';
+    ctx.fillText(`WAVE ${this.wave}`, 18, 50);
+    ctx.font = '9px Space Mono, monospace'; ctx.fillStyle = '#666688'; ctx.textAlign = 'right';
+    ctx.fillText('FOCUS CHARGES', W-18, 20);
+    for (let i = 0; i < this.maxCharges; i++) {
+      const cx = W - 25 - (this.maxCharges - 1 - i) * 30, cy = 36;
+      const active = i < this.charges;
+      ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI*2);
+      if (active) { ctx.fillStyle = '#00e5ff'; ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 14; }
+      else { ctx.fillStyle = 'rgba(0,100,120,0.2)'; ctx.shadowBlur = 0; }
+      ctx.fill(); ctx.strokeStyle = active ? '#00e5ff' : 'rgba(0,120,140,0.4)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2);
+      ctx.fillStyle = active ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)'; ctx.fill();
+    }
+    if (this.charges < this.maxCharges) {
+      const blinkPulse = 0.5 + 0.5*Math.sin(t*0.005);
+      ctx.globalAlpha = blinkPulse;
+      ctx.font = '700 10px Orbitron, monospace'; ctx.fillStyle = '#aaff00';
+      ctx.shadowColor = '#aaff00'; ctx.shadowBlur = 10;
+      ctx.fillText('BLINK TO RELOAD', W-18, 58);
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+    if (t < 12000) {
+      ctx.globalAlpha = Math.min(1, (12000-t)/2000) * 0.5;
+      ctx.font = '10px Space Mono, monospace'; ctx.fillStyle = '#888899'; ctx.textAlign = 'center';
+      ctx.fillText('MOVE MOUSE TO AIM   •   CLICK / SPACE = BLINK & RELOAD', W/2, this.H - 14);
+      ctx.globalAlpha = 1;
+    }
+    ctx.textAlign = 'left'; ctx.restore();
+  }
+
+  drawIdle(ctx, t) {
+    const W = this.W, H = this.H;
+    this.renderIdleAsteroids(ctx, t);
+    ctx.fillStyle = 'rgba(1,1,8,0.7)'; ctx.fillRect(0, 0, W, H);
+    ctx.save(); ctx.textAlign = 'center';
+    ctx.font = '900 clamp(20px,3vw,32px) Orbitron, monospace';
+    ctx.fillStyle = '#00e5ff'; ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 25;
+    ctx.fillText('DEFEND THE PLANET', W/2, H/2 - 70);
+    ctx.shadowBlur = 0;
+    ctx.font = '400 14px Barlow Condensed, sans-serif'; ctx.fillStyle = 'rgba(200,200,220,0.75)';
+    const lines = [
+      'Move your mouse (or use eye tracking) to aim at asteroids.',
+      'Hold your gaze to charge your weapon and destroy them.',
+      'CLICK or press SPACE to BLINK and reload your charges.',
+      'Larger asteroids require longer sustained focus.'
+    ];
+    lines.forEach((l, i) => ctx.fillText(l, W/2, H/2 - 28 + i*22));
+    const bpulse = 0.65 + 0.35*Math.sin(t*0.0025);
+    ctx.font = '700 15px Orbitron, monospace'; ctx.fillStyle = '#aaff00';
+    ctx.shadowColor = '#aaff00'; ctx.shadowBlur = 12; ctx.globalAlpha = bpulse;
+    ctx.fillText('[ CLICK TO BEGIN ]', W/2, H/2 + 75);
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.restore();
+  }
+
+  renderIdleAsteroids(ctx, t) {
+    const W = this.W, H = this.H;
+    for (let i = 0; i < 5; i++) {
+      const ang = (t * 0.0003 + i * 1.26) % (Math.PI * 2);
+      const rx = W/2 + Math.cos(ang) * (W*0.35), ry = H/2 + Math.sin(ang) * (H*0.35);
+      ctx.save(); ctx.translate(rx, ry); ctx.rotate(ang * 2); ctx.globalAlpha = 0.25;
+      ctx.beginPath();
+      for (let s = 0; s < 7; s++) {
+        const sa = (Math.PI*2/7)*s, r = 16 + Math.sin(s*3.7)*6;
+        if(s===0) ctx.moveTo(Math.cos(sa)*r, Math.sin(sa)*r);
+        else ctx.lineTo(Math.cos(sa)*r, Math.sin(sa)*r);
+      }
+      ctx.closePath(); ctx.fillStyle = '#604a35'; ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  drawGameOver(ctx) {
+    const W = this.W, H = this.H, t = performance.now();
+    ctx.fillStyle = 'rgba(20,0,4,0.8)'; ctx.fillRect(0, 0, W, H);
+    ctx.save(); ctx.textAlign = 'center';
+    ctx.font = '900 32px Orbitron, monospace'; ctx.fillStyle = '#ff3a5c';
+    ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 30;
+    ctx.fillText('PLANET DESTROYED', W/2, H/2 - 65);
+    ctx.shadowBlur = 0;
+    ctx.font = '700 22px Orbitron, monospace'; ctx.fillStyle = '#00e5ff';
+    ctx.fillText(`SCORE: ${this.score}`, W/2, H/2 - 18);
+    ctx.font = '400 14px Barlow Condensed, sans-serif'; ctx.fillStyle = 'rgba(200,200,220,0.6)';
+    ctx.fillText(`Wave ${this.wave} reached`, W/2, H/2 + 16);
+    ctx.font = '700 15px Orbitron, monospace'; ctx.fillStyle = '#aaff00';
+    ctx.shadowColor = '#aaff00'; ctx.shadowBlur = 12;
+    ctx.globalAlpha = 0.6 + 0.4*Math.sin(t*0.003);
+    ctx.fillText('[ CLICK TO RETRY ]', W/2, H/2 + 75);
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.restore();
+  }
+
+  loop(timestamp) {
+    const dt = this.lastTime > 0 ? Math.min(timestamp - this.lastTime, 50) : 16;
+    this.lastTime = timestamp;
+    if (this.state === 'playing') this.update(dt);
+    if (this.state !== 'gameover') {
+      this.render();
+      requestAnimationFrame((t) => this.loop(t));
+    } else {
+      this.render();
+    }
+  }
+}
+
+const gameCanvas = document.getElementById('game-canvas');
+const game = new SpantherGame(gameCanvas);
+
+function gameAction(action) {
+  if (action === 'start') {
+    game.startGame();
+    document.getElementById('btn-start').textContent = '↺ RESTART';
+  }
+}
+
+// ============================================================
+//  EYEDID / SEESO — стабильная инициализация + красивая калибровка
+// ============================================================
+
+let tracker       = null;
+let eyeTrackingActive = false;
+
+// Состояние калибровки
+const calib = {
+  totalPoints : 5,
+  donePoints  : 0,
+  sampleTimer : null,   // таймер автосбора сэмплов
+  SAMPLE_MS   : 1800,   // сколько мс собираем сэмплы на точке
+};
+
+async function enableEyedid() {
+  const btn     = document.getElementById('btn-webcam');
+  const etDot   = document.getElementById('et-dot');
+  const etText  = document.getElementById('et-status-text');
+
+  // --- ВЫКЛЮЧЕНИЕ ---
+  if (eyeTrackingActive) {
+    if (tracker) { try { tracker.stopTracking(); } catch (_) {} }
+    eyeTrackingActive = false;
+    game.useEyeTracking = false;
+    etDot.classList.remove('active');
+    etText.textContent  = 'MOUSE MODE';
+    btn.textContent     = '📷 ENABLE EYE TRACKING';
+    btn.classList.remove('active');
+    btn.disabled = false;
+    return;
+  }
+
+  // --- Проверка ключа ---
+  if (!EYEDID_LICENSE_KEY || EYEDID_LICENSE_KEY.includes('YOUR_')) {
+    alert('Вставь лицензионный ключ Eyedid в константу EYEDID_LICENSE_KEY');
+    return;
+  }
+
+  btn.textContent = '⏳ ИНИЦИАЛИЗАЦИЯ...';
+  btn.disabled    = true;
+
+  // Гарантируем, что SDK загружен
+  if (typeof SeeSo === 'undefined') {
+    showCalibError('SDK не загружен. Убедись, что /sdk/seeso.js существует.');
+    btn.textContent = '📷 ENABLE EYE TRACKING';
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    await SeeSo.init(
+      EYEDID_LICENSE_KEY,
+      /* onSuccess */ async () => {
+        tracker = new SeeSo.GazeTracker();
+        setupCalibrationUI();
+        await startTrackerAndCalibrate();
+      },
+      /* onError */ (err) => {
+        console.error('SeeSo init error:', err);
+        showCalibError(`Ошибка инициализации: ${err?.message || err}`);
+        btn.textContent = '📷 ENABLE EYE TRACKING';
+        btn.disabled = false;
+      }
+    );
+  } catch (err) {
+    console.error('enableEyedid exception:', err);
+    showCalibError('Не удалось получить доступ к камере.');
+    btn.textContent = '📷 ENABLE EYE TRACKING';
+    btn.disabled = false;
+  }
+}
+
+// ------------------------------------------------------------
+//  Показываем сообщение об ошибке прямо в оверлее
+// ------------------------------------------------------------
+function showCalibError(msg) {
+  const overlay = document.getElementById('calibration-overlay');
+  const sub     = document.getElementById('calib-instruction');
+  overlay.classList.add('active');
+  sub.style.color = 'var(--red)';
+  sub.textContent  = msg;
+  setTimeout(() => {
+    overlay.classList.remove('active');
+    sub.style.color = '';
+  }, 3500);
+}
+
+// ------------------------------------------------------------
+//  Настройка UI калибровки (вызывается один раз)
+// ------------------------------------------------------------
+function setupCalibrationUI() {
+  const point = document.getElementById('calibration-point');
+  // Убираем старые слушатели, клонируя узел
+  const fresh = point.cloneNode(true);
+  point.parentNode.replaceChild(fresh, point);
+
+  // Клик по точке = начать сбор сэмплов
+  fresh.addEventListener('click', onCalibPointClick);
+}
+
+function onCalibPointClick() {
+  const point = document.getElementById('calibration-point');
+  if (point.classList.contains('collecting')) return; // уже собираем
+
+  point.classList.add('collecting');
+  document.getElementById('calib-instruction').textContent = 'Смотрите на точку, не моргайте...';
+  document.getElementById('calib-instruction').classList.add('collecting');
+
+  // Анимируем SVG-кольцо
+  animateCalibRing(calib.SAMPLE_MS);
+
+  tracker.startCollectSamples(); // сообщаем SDK начать запись
+
+  // Авто-переход через SAMPLE_MS (SDK сам вызовет onCalibrationNextPoint / Finished)
+  calib.sampleTimer = setTimeout(() => {
+    point.classList.remove('collecting');
+    document.getElementById('calib-instruction').classList.remove('collecting');
+  }, calib.SAMPLE_MS);
+}
+
+// Анимирует SVG-кольцо от 0 до 100% за `ms` миллисекунд
+function animateCalibRing(ms) {
+  const ring = document.getElementById('calib-ring-fill');
+  const circumference = 163.4;
+  const start = performance.now();
+
+  function frame(now) {
+    const progress = Math.min((now - start) / ms, 1);
+    ring.style.strokeDashoffset = circumference * (1 - progress);
+    if (progress < 1) requestAnimationFrame(frame);
+    else ring.style.strokeDashoffset = circumference; // сброс
+  }
+  requestAnimationFrame(frame);
+}
+
+// Обновляем прогресс-бар
+function updateCalibProgress(done) {
+  const bar   = document.getElementById('calib-progress-bar');
+  const label = document.getElementById('calib-progress-label');
+  bar.style.width    = `${(done / calib.totalPoints) * 100}%`;
+  label.textContent  = `${done} / ${calib.totalPoints}`;
+}
+
+// ------------------------------------------------------------
+//  Запуск трекера и калибровки
+// ------------------------------------------------------------
+async function startTrackerAndCalibrate() {
+  const btn    = document.getElementById('btn-webcam');
+  const etDot  = document.getElementById('et-dot');
+  const etText = document.getElementById('et-status-text');
+  const canvas = document.getElementById('game-canvas');
+  const overlay = document.getElementById('calibration-overlay');
+
+  calib.donePoints = 0;
+  updateCalibProgress(0);
+
+  const gazeCallback = {
+    onGaze(gazeInfo) {
+      if (!gazeInfo || gazeInfo.trackingState !== SeeSo.TrackingState.SUCCESS) return;
+      const rect    = canvas.getBoundingClientRect();
+      const canvasX = gazeInfo.x - rect.left;
+      const canvasY = gazeInfo.y - rect.top;
+      game.setGaze(canvasX, canvasY);
+      if (gazeInfo.blinkState === SeeSo.BlinkState.BLINK) game.doBlink();
+    }
+  };
+
+  const calibrationCallback = {
+    onCalibrationProgress(progress) {
+      // progress: 0–1, можно использовать для доп. анимации
+    },
+
+    onCalibrationNextPoint(ptX, ptY) {
+      calib.donePoints++;
+      updateCalibProgress(calib.donePoints - 1); // предыдущая завершена
+
+      // Сбрасываем таймер старой точки (если был)
+      clearTimeout(calib.sampleTimer);
+
+      const point = document.getElementById('calibration-point');
+      point.classList.remove('visible', 'collecting');
+      document.getElementById('calib-instruction').textContent = 'Посмотрите на точку и нажмите на неё';
+
+      // Позиционируем точку
+      point.style.left = ptX + 'px';
+      point.style.top  = ptY + 'px';
+
+      // Небольшая задержка для анимации появления
+      setTimeout(() => {
+        point.classList.add('visible');
+        // Переподключаем обработчик (т.к. мы клонировали узел в setupCalibrationUI)
+        point.onclick = onCalibPointClick;
+      }, 80);
+    },
+
+    onCalibrationFinished() {
+      clearTimeout(calib.sampleTimer);
+      updateCalibProgress(calib.totalPoints);
+
+      const point = document.getElementById('calibration-point');
+      point.classList.remove('visible', 'collecting');
+
+      // Короткая задержка → скрываем оверлей
+      setTimeout(() => {
+        overlay.classList.remove('active');
+        eyeTrackingActive = true;
+        game.useEyeTracking = true;
+        etDot.classList.add('active');
+        etText.textContent  = 'GAZE TRACKING';
+        btn.textContent     = '👁 EYE TRACKING ACTIVE';
+        btn.classList.add('active');
+        btn.disabled = false;
+        game.startGame();
+      }, 500);
+    }
+  };
+
+  await tracker.startTracking(gazeCallback, null, calibrationCallback);
+
+  // Показываем оверлей и запускаем калибровку
+  overlay.classList.add('active');
+  tracker.startCalibration(SeeSo.CalibrationMode.FIVE_POINT);
+}
+
+document.querySelectorAll('.pricing-card').forEach(card => {
+  card.addEventListener('mousemove', (e) => {
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    card.style.transform = `perspective(600px) rotateX(${-y*6}deg) rotateY(${x*6}deg) translateY(-6px)`;
+  });
+  card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+});
+
+document.querySelectorAll('.team-card').forEach(card => {
+  card.addEventListener('mousemove', (e) => {
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    card.style.transform = `perspective(500px) rotateX(${-y*4}deg) rotateY(${x*4}deg) translateY(-4px)`;
+  });
+  card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+});
+
+document.querySelectorAll('.stat-card').forEach(card => {
+  const scan = document.createElement('div');
+  scan.style.cssText = 'position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(0,229,255,0.04),transparent);pointer-events:none;transition:none;';
+  card.style.position = 'relative'; card.style.overflow = 'hidden';
+  card.appendChild(scan);
+  setInterval(() => {
+    scan.style.transition = 'left 1.2s ease';
+    scan.style.left = '150%';
+    setTimeout(() => { scan.style.transition = 'none'; scan.style.left = '-100%'; }, 1400);
+  }, 4000 + Math.random() * 2000);
+});
+</script>
+</body>
+</html>
