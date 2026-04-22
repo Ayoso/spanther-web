@@ -11,14 +11,17 @@
 
 <!-- ✅ ИСПРАВЛЕНО: единое имя SeeSo (с заглавной S посередине) везде -->
 <script type="module">
-  import Seeso from './sdk/seeso.js';
+ import Seeso from './sdk/seeso.js';
 
 window.SeeSo = Seeso;
 
-// Смотрим что реально есть
-console.log('Все ключи:', Object.keys(Seeso));
 console.log('Static props:', Object.getOwnPropertyNames(Seeso));
-console.log('Prototype:', Object.getOwnPropertyNames(Seeso.prototype));
+console.log('Prototype methods:', Object.getOwnPropertyNames(Seeso.prototype));
+
+// Попробуем создать экземпляр
+const instance = new Seeso();
+console.log('Instance:', instance);
+console.log('Instance keys:', Object.keys(instance));
 </script>
 
 <style>
