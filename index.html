@@ -2170,36 +2170,15 @@ function gameAction(action) {
 //  ✅ EYEDID / SEESO — waitForSDK + стабильная инициализация
 // ============================================================
 
-let tracker           = null;
+let tracker = null;
 let eyeTrackingActive = false;
 
-// Состояние калибровки
 const calib = {
-  totalPoints : 5,
-  donePoints  : 0,
-  sampleTimer : null,
-  SAMPLE_MS   : 1800,
+  totalPoints: 5,
+  donePoints: 0,
+  sampleTimer: null,
+  SAMPLE_MS: 1800,
 };
-
-/**
- * ✅ НОВАЯ ФУНКЦИЯ: ждём, пока type="module" загрузит SDK в window.SeeSo.
- * Нужна потому что ES-модули грузятся асинхронно и могут ещё не быть
- * доступны к моменту вызова enableEyedid().
- */
-function waitForSDK(ms = 6000) {
-  return new Promise((resolve, reject) => {
-    if (typeof window.SeeSo !== 'undefined') { resolve(); return; }
-    const iv = setInterval(() => {
-      if (typeof window.SeeSo !== 'undefined') {
-        clearInterval(iv); clearTimeout(to); resolve();
-      }
-    }, 100);
-    const to = setTimeout(() => {
-      clearInterval(iv);
-      reject(new Error('SeeSo SDK не загрузился за ' + ms + 'мс. Проверь путь /sdk/seeso.js'));
-    }, ms);
-  });
-}
 
 async function enableEyedid() {
   const btn    = document.getElementById('btn-webcam');
@@ -2212,51 +2191,149 @@ async function enableEyedid() {
     eyeTrackingActive = false;
     game.useEyeTracking = false;
     etDot.classList.remove('active');
-    etText.textContent  = 'MOUSE MODE';
-    btn.textContent     = '📷 ENABLE EYE TRACKING';
+    etText.textContent = 'MOUSE MODE';
+    btn.textContent    = '📷 ENABLE EYE TRACKING';
     btn.classList.remove('active');
     btn.disabled = false;
     return;
   }
 
   btn.textContent = '⏳ ИНИЦИАЛИЗАЦИЯ...';
-  btn.disabled    = true;
+  btn.disabled = true;
 
   try {
-    // ✅ Ждём загрузки SDK (ES-модуль асинхронный)
-    await waitForSDK();
+    tracker = new window.SeeSo();
 
-    await SeeSo.init(
-      EYEDID_LICENSE_KEY,
-      /* onSuccess */ async () => {
-        tracker = new SeeSo.GazeTracker();
-        setupCalibrationUI();
-        await startTrackerAndCalibrate();
-      },
-      /* onError */ (err) => {
-        console.error('SeeSo init error:', err);
-        showCalibError(`Ошибка инициализации: ${err?.message || err}`);
-        btn.textContent = '📷 ENABLE EYE TRACKING';
-        btn.disabled = false;
+    await new Promise((resolve, reject) => {
+      tracker.initialize(
+        EYEDID_LICENSE_KEY,
+        () => resolve(),
+        (err) => reject(new Error('Init failed: ' + JSON.stringify(err)))
+      );
+    });
+
+    // Gaze callback
+    tracker.addGazeCallback((gazeInfo) => {
+      if (!gazeInfo) return;
+      const canvas = document.getElementById('game-canvas');
+      const rect   = canvas.getBoundingClientRect();
+      game.setGaze(gazeInfo.x - rect.left, gazeInfo.y - rect.top);
+    });
+
+    // Blink callback
+    tracker.addBlinkCallback((blinkInfo) => {
+      if (blinkInfo && (blinkInfo.isBlink || blinkInfo.eyeBlink)) {
+        game.doBlink();
       }
-    );
+    });
+
+    // Calibration callbacks
+    tracker.addCalibrationNextPointCallback((x, y) => {
+      calib.donePoints++;
+      updateCalibProgress(calib.donePoints - 1);
+      clearTimeout(calib.sampleTimer);
+
+      const point = document.getElementById('calibration-point');
+      point.classList.remove('visible', 'collecting');
+      document.getElementById('calib-instruction').textContent = 'Посмотрите на точку и нажмите на неё';
+      document.getElementById('calib-instruction').classList.remove('collecting');
+
+      point.style.left = x + 'px';
+      point.style.top  = y + 'px';
+      setTimeout(() => {
+        point.classList.add('visible');
+        point.onclick = onCalibPointClick;
+      }, 80);
+    });
+
+    tracker.addCalibrationProgressCallback((progress) => {
+      // optional
+    });
+
+    tracker.addCalibrationFinishCallback(() => {
+      clearTimeout(calib.sampleTimer);
+      updateCalibProgress(calib.totalPoints);
+
+      const point   = document.getElementById('calibration-point');
+      const overlay = document.getElementById('calibration-overlay');
+      point.classList.remove('visible', 'collecting');
+
+      setTimeout(() => {
+        overlay.classList.remove('active');
+        eyeTrackingActive    = true;
+        game.useEyeTracking  = true;
+        etDot.classList.add('active');
+        etText.textContent   = 'GAZE TRACKING';
+        btn.textContent      = '👁 EYE TRACKING ACTIVE';
+        btn.classList.add('active');
+        btn.disabled = false;
+        game.startGame();
+      }, 500);
+    });
+
+    // Запуск
+    await tracker.startTracking();
+
+    const overlay = document.getElementById('calibration-overlay');
+    overlay.classList.add('active');
+    calib.donePoints = 0;
+    updateCalibProgress(0);
+    setupCalibrationUI();
+    tracker.startCalibration(5); // 5-point calibration
+
   } catch (err) {
     console.error('enableEyedid exception:', err);
-    showCalibError(err.message || 'Не удалось получить доступ к камере.');
+    showCalibError(err.message || 'Ошибка инициализации');
     btn.textContent = '📷 ENABLE EYE TRACKING';
     btn.disabled = false;
   }
 }
 
-// ------------------------------------------------------------
-//  Показываем сообщение об ошибке в оверлее
-// ------------------------------------------------------------
+function setupCalibrationUI() {
+  const point = document.getElementById('calibration-point');
+  const fresh = point.cloneNode(true);
+  point.parentNode.replaceChild(fresh, point);
+  fresh.addEventListener('click', onCalibPointClick);
+}
+
+function onCalibPointClick() {
+  const point = document.getElementById('calibration-point');
+  if (point.classList.contains('collecting')) return;
+  point.classList.add('collecting');
+  document.getElementById('calib-instruction').textContent = 'Смотрите на точку, не моргайте...';
+  document.getElementById('calib-instruction').classList.add('collecting');
+  animateCalibRing(calib.SAMPLE_MS);
+  tracker.startCollectSamples();
+  calib.sampleTimer = setTimeout(() => {
+    point.classList.remove('collecting');
+    document.getElementById('calib-instruction').classList.remove('collecting');
+  }, calib.SAMPLE_MS);
+}
+
+function animateCalibRing(ms) {
+  const ring = document.getElementById('calib-ring-fill');
+  const circumference = 163.4;
+  const start = performance.now();
+  function frame(now) {
+    const progress = Math.min((now - start) / ms, 1);
+    ring.style.strokeDashoffset = circumference * (1 - progress);
+    if (progress < 1) requestAnimationFrame(frame);
+    else ring.style.strokeDashoffset = circumference;
+  }
+  requestAnimationFrame(frame);
+}
+
+function updateCalibProgress(done) {
+  document.getElementById('calib-progress-bar').style.width = `${(done / calib.totalPoints) * 100}%`;
+  document.getElementById('calib-progress-label').textContent = `${done} / ${calib.totalPoints}`;
+}
+
 function showCalibError(msg) {
   const overlay = document.getElementById('calibration-overlay');
   const sub     = document.getElementById('calib-instruction');
   overlay.classList.add('active');
-  sub.style.color  = 'var(--red)';
-  sub.textContent  = msg;
+  sub.style.color = 'var(--red)';
+  sub.textContent = msg;
   setTimeout(() => {
     overlay.classList.remove('active');
     sub.style.color = '';
