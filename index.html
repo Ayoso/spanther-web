@@ -9,11 +9,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Barlow+Condensed:ital,wght@0,200;0,400;0,600;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <script type="module">
-  import SeeSo, { TrackingState } from '/sdk/seeso.js';
+  // Вытаскиваем нужные классы из файла
+  import Seeso, { TrackingState, UserStatusOption } from '/sdk/seeso.js';
   
-  window.SeeSo = SeeSo;
-  window.SeeSo.TrackingState = TrackingState;
-  window.SeeSo.CalibrationMode = { FIVE_POINT: 5, ONE_POINT: 1 };
+  // Кладем их в window, чтобы они были доступны кнопкам
+  window.Seeso = Seeso;
+  window.TrackingState = TrackingState;
+  window.UserStatusOption = UserStatusOption;
 </script>
 <style>
 :root {
