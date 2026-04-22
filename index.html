@@ -8,7 +8,22 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Barlow+Condensed:ital,wght@0,200;0,400;0,600;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-<script src="/sdk/seeso.js"></script>
+
+<!-- ✅ ИСПРАВЛЕНО: единое имя SeeSo (с заглавной S посередине) везде -->
+<script type="module">
+import Seeso from './sdk/seeso.js';
+
+window.SeeSo                  = Seeso;
+window.SeeSo.TrackingState    = Seeso.TrackingState;
+window.SeeSo.BlinkState       = Seeso.BlinkState;
+window.SeeSo.CalibrationMode  = Seeso.CalibrationMode;
+
+console.log('✅ SeeSo SDK loaded:', typeof window.SeeSo);
+console.log('   TrackingState:', window.SeeSo.TrackingState);
+console.log('   BlinkState:',    window.SeeSo.BlinkState);
+console.log('   CalibrationMode:', window.SeeSo.CalibrationMode);
+</script>
+
 <style>
 :root {
   --bg0: #010108;
@@ -454,27 +469,7 @@ section { padding: 100px 48px; }
 
 #game-canvas { display: block; width: 100%; cursor: none; }
 
-.webcam-pip {
-  position: absolute; bottom: 16px; right: 16px; z-index: 20;
-  width: 140px; height: 100px;
-  border: 1px solid rgba(0,229,255,0.3);
-  background: var(--bg0); overflow: hidden;
-}
-.webcam-pip video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-.webcam-pip-label {
-  position: absolute; bottom: 4px; left: 6px;
-  font-family: 'Space Mono', monospace; font-size: 8px;
-  letter-spacing: 2px; color: rgba(0,229,255,0.7); text-transform: uppercase;
-  background: rgba(1,1,8,0.7); padding: 2px 4px;
-}
-.webcam-pip-status {
-  position: absolute; top: 6px; right: 6px;
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--muted);
-}
-.webcam-pip-status.active { background: var(--lime); box-shadow: 0 0 8px var(--lime); animation: livePulse 1s infinite; }
-
-/* ====== CALIBRATION OVERLAY (ОБНОВЛЕНО) ====== */
+/* ====== CALIBRATION OVERLAY ====== */
 .calibration-overlay {
   position: absolute; inset: 0;
   background: rgba(1, 1, 8, 0.92);
@@ -530,7 +525,6 @@ section { padding: 100px 48px; }
   white-space: nowrap;
 }
 
-/* === Точка калибровки === */
 .calibration-point {
   position: absolute;
   width: 60px; height: 60px;
@@ -541,7 +535,6 @@ section { padding: 100px 48px; }
 }
 .calibration-point.visible { display: flex; }
 
-/* Анимация появления точки */
 @keyframes calibPointAppear {
   from { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
   to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
@@ -550,7 +543,6 @@ section { padding: 100px 48px; }
   animation: calibPointAppear 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
-/* Внешний пульсирующий круг */
 .calib-dot-outer {
   position: absolute; inset: 0; border-radius: 50%;
   border: 1.5px solid rgba(255, 58, 92, 0.4);
@@ -561,7 +553,6 @@ section { padding: 100px 48px; }
   50%       { transform: scale(1.3); opacity: 0.15; }
 }
 
-/* Центральная точка */
 .calib-dot-inner {
   width: 16px; height: 16px; border-radius: 50%;
   background: var(--red);
@@ -575,7 +566,6 @@ section { padding: 100px 48px; }
   box-shadow: 0 0 16px var(--cyan), 0 0 32px rgba(0, 229, 255, 0.4);
 }
 
-/* Блик */
 .calib-dot-shine {
   position: absolute; top: 12px; left: 16px;
   width: 6px; height: 6px; border-radius: 50%;
@@ -583,7 +573,6 @@ section { padding: 100px 48px; }
   z-index: 3; pointer-events: none;
 }
 
-/* SVG кольцо прогресса сбора сэмплов */
 .calib-dot-ring {
   position: absolute; inset: 0; z-index: 1;
 }
@@ -594,8 +583,8 @@ section { padding: 100px 48px; }
 .calib-ring-fill {
   fill: none; stroke: var(--cyan);
   stroke-width: 3; stroke-linecap: round;
-  stroke-dasharray: 163.4;       /* 2π × r = 2π × 26 */
-  stroke-dashoffset: 163.4;      /* начинаем пустым */
+  stroke-dasharray: 163.4;
+  stroke-dashoffset: 163.4;
   transform: rotate(-90deg); transform-origin: 30px 30px;
   transition: stroke-dashoffset 0.1s linear;
   filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.8));
@@ -1159,7 +1148,7 @@ footer {
 
     <div class="demo-arena reveal" style="transition-delay:.2s">
       <canvas id="game-canvas" width="1024" height="580"></canvas>
-      
+
       <div id="calibration-overlay" class="calibration-overlay">
         <div class="calib-header">
           <div class="calib-title">КАЛИБРОВКА ВЗГЛЯДА</div>
@@ -1464,8 +1453,14 @@ footer {
 </footer>
 
 <script>
+// ============================================================
+//  ✅ ЛИЦЕНЗИОННЫЙ КЛЮЧ EYEDID (вставлен)
+// ============================================================
 const EYEDID_LICENSE_KEY = 'dev_vomgbdwty4v12rof7kvc3v1oxz6971qwusu5qtle';
 
+// ============================================================
+//  Loading screen
+// ============================================================
 (function() {
   const bar = document.getElementById('loading-bar');
   const txt = document.getElementById('loading-text');
@@ -1495,7 +1490,10 @@ const EYEDID_LICENSE_KEY = 'dev_vomgbdwty4v12rof7kvc3v1oxz6971qwusu5qtle';
   }, 160);
 })();
 
-const dot = document.getElementById('cursor-dot');
+// ============================================================
+//  Custom cursor
+// ============================================================
+const dot  = document.getElementById('cursor-dot');
 const ring = document.getElementById('cursor-ring');
 let mx = 0, my = 0, rx = 0, ry = 0;
 document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
@@ -1506,22 +1504,31 @@ function animCursor() {
   requestAnimationFrame(animCursor);
 }
 animCursor();
-document.querySelectorAll('a,button,.demo-btn,.pricing-cta,.btn-primary,.btn-secondary,.store-badge,.nav-cta').forEach(el => {
+document.querySelectorAll('a,button,.demo-btn,.pricing-cta,.btn-primary,.btn-secondary,.nav-cta').forEach(el => {
   el.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
   el.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
 });
 
+// ============================================================
+//  Navbar scroll
+// ============================================================
 const navbar = document.getElementById('navbar');
 window.addEventListener('scroll', () => {
   navbar.classList.toggle('scrolled', window.scrollY > 60);
 });
 
+// ============================================================
+//  Reveal on scroll
+// ============================================================
 const reveals = document.querySelectorAll('.reveal');
 const revealObs = new IntersectionObserver((entries) => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
 }, { threshold: 0.12 });
 reveals.forEach(r => revealObs.observe(r));
 
+// ============================================================
+//  Counters
+// ============================================================
 function animateCounter(el, target, suffix, duration) {
   let start = null;
   function step(ts) {
@@ -1547,6 +1554,9 @@ const counterObs = new IntersectionObserver((entries) => {
 }, { threshold: 0.5 });
 document.querySelectorAll('.stat-number[data-target]').forEach(el => counterObs.observe(el));
 
+// ============================================================
+//  Particle canvas (hero)
+// ============================================================
 (function() {
   const canvas = document.getElementById('particle-canvas');
   const ctx = canvas.getContext('2d');
@@ -1558,7 +1568,6 @@ document.querySelectorAll('.stat-number[data-target]').forEach(el => counterObs.
   }
   resize();
   window.addEventListener('resize', resize);
-
   document.addEventListener('mousemove', e => {
     const rect = canvas.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
@@ -1568,8 +1577,7 @@ document.querySelectorAll('.stat-number[data-target]').forEach(el => counterObs.
   class Particle {
     constructor() { this.reset(); }
     reset() {
-      this.x = Math.random() * W;
-      this.y = Math.random() * H;
+      this.x = Math.random() * W; this.y = Math.random() * H;
       this.baseX = this.x; this.baseY = this.y;
       this.size = Math.random() * 2 + 0.5;
       this.opacity = Math.random() * 0.5 + 0.1;
@@ -1598,26 +1606,18 @@ document.querySelectorAll('.stat-number[data-target]').forEach(el => counterObs.
       if (this.isEye) {
         const t = Date.now() * 0.001;
         const blink = Math.sin(t * 0.7 + this.baseX * 0.01) > 0.92;
-        ctx.save();
-        ctx.globalAlpha = this.opacity * 0.8;
-        ctx.strokeStyle = '#00e5ff';
-        ctx.lineWidth = 0.8;
+        ctx.save(); ctx.globalAlpha = this.opacity * 0.8;
+        ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 0.8;
         const ew = 12, eh = blink ? 1 : 7;
-        ctx.beginPath();
-        ctx.ellipse(this.x, this.y, ew, eh, 0, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(this.x, this.y, ew, eh, 0, 0, Math.PI * 2); ctx.stroke();
         if (!blink) {
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0,229,255,0.5)';
-          ctx.fill();
+          ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0,229,255,0.5)'; ctx.fill();
         }
         ctx.restore();
       } else {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0,229,255,${this.opacity})`;
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,229,255,${this.opacity})`; ctx.fill();
       }
     }
   }
@@ -1627,16 +1627,11 @@ document.querySelectorAll('.stat-number[data-target]').forEach(el => counterObs.
   function drawConnections() {
     for (let i = 0; i < particles.length; i++) {
       for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
+        const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 90) {
-          ctx.beginPath();
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.strokeStyle = `rgba(0,229,255,${(1 - dist / 90) * 0.08})`;
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = `rgba(0,229,255,${(1 - dist / 90) * 0.08})`; ctx.lineWidth = 0.5; ctx.stroke();
         }
       }
     }
@@ -1651,15 +1646,16 @@ document.querySelectorAll('.stat-number[data-target]').forEach(el => counterObs.
   animate();
 })();
 
+// ============================================================
+//  Hero pupil follows mouse
+// ============================================================
 (function() {
   const pupil = document.getElementById('hero-pupil');
   const heroSection = document.getElementById('hero');
   document.addEventListener('mousemove', (e) => {
     const rect = heroSection.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const dx = e.clientX - cx;
-    const dy = e.clientY - cy;
+    const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    const dx = e.clientX - cx, dy = e.clientY - cy;
     const maxDist = 22;
     const angle = Math.atan2(dy, dx);
     const dist = Math.min(Math.sqrt(dx * dx + dy * dy) / 8, maxDist);
@@ -1667,12 +1663,15 @@ document.querySelectorAll('.stat-number[data-target]').forEach(el => counterObs.
   });
 })();
 
+// ============================================================
+//  Floating eyes (hero bg)
+// ============================================================
 (function() {
   const container = document.getElementById('float-eyes-container');
   const positions = [
     [8,15],[88,20],[15,70],[85,65],[50,5],[20,45],[75,35],[92,80],[5,90],[60,88]
   ];
-  positions.forEach(([lp, tp], i) => {
+  positions.forEach(([lp, tp]) => {
     const el = document.createElement('div');
     el.className = 'float-eye';
     el.style.left = lp + '%'; el.style.top = tp + '%';
@@ -1688,6 +1687,9 @@ document.querySelectorAll('.stat-number[data-target]').forEach(el => counterObs.
   });
 })();
 
+// ============================================================
+//  GAME ENGINE
+// ============================================================
 class SpantherGame {
   constructor(canvas) {
     this.canvas = canvas;
@@ -1706,7 +1708,7 @@ class SpantherGame {
     this.explosionRings = [];
     this.initStars();
     this.initEvents();
-    this.loop(0); 
+    this.loop(0);
   }
 
   initStars() {
@@ -1723,24 +1725,23 @@ class SpantherGame {
 
   initEvents() {
     this.canvas.addEventListener('mousemove', (e) => {
-      if(this.useEyeTracking) return;
+      if (this.useEyeTracking) return;
       const r = this.canvas.getBoundingClientRect();
       const sx = this.W / r.width, sy = this.H / r.height;
       this.gazeX = (e.clientX - r.left) * sx;
       this.gazeY = (e.clientY - r.top) * sy;
     });
-    const blinkHandler = (e) => {
+    document.addEventListener('keydown', (e) => {
       if (e.code === 'Space') { e.preventDefault(); this.doBlink(); }
-    };
-    document.addEventListener('keydown', blinkHandler);
+    });
     this.canvas.addEventListener('click', () => {
       if (this.state === 'playing') this.doBlink();
       else this.startGame();
     });
   }
 
-  setGaze(x, y) { 
-    if(!this.useEyeTracking) return;
+  setGaze(x, y) {
+    if (!this.useEyeTracking) return;
     this.gazeX += (x - this.gazeX) * 0.4;
     this.gazeY += (y - this.gazeY) * 0.4;
   }
@@ -1901,8 +1902,7 @@ class SpantherGame {
     for (const s of this.stars) {
       s.twinkle += s.twinkleSpeed;
       ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(200,210,255,${s.op * (0.6 + 0.4*Math.sin(s.twinkle))})`;
-      ctx.fill();
+      ctx.fillStyle = `rgba(200,210,255,${s.op * (0.6 + 0.4*Math.sin(s.twinkle))})`; ctx.fill();
     }
 
     const nb1 = ctx.createRadialGradient(W*0.8, H*0.2, 0, W*0.8, H*0.2, 180);
@@ -1942,21 +1942,17 @@ class SpantherGame {
     ctx.restore();
 
     if (this.state === 'idle') this.drawIdle(ctx, t);
-    if (this.state === 'gameover') { this.drawGameOver(ctx); requestAnimationFrame((t)=>this.render()); return; }
+    if (this.state === 'gameover') { this.drawGameOver(ctx); requestAnimationFrame(()=>this.render()); return; }
   }
 
   drawPlanet(ctx, t) {
     const {x, y, radius, health, maxHealth, shield, maxShield, angle} = this.planet;
-
     const atm = ctx.createRadialGradient(x, y, radius*0.8, x, y, radius*2.8);
     atm.addColorStop(0,'rgba(30,80,200,0.15)'); atm.addColorStop(0.5,'rgba(10,40,120,0.06)'); atm.addColorStop(1,'transparent');
     ctx.fillStyle = atm; ctx.beginPath(); ctx.arc(x, y, radius*2.8, 0, Math.PI*2); ctx.fill();
-
     const pg = ctx.createRadialGradient(x-radius*0.3, y-radius*0.3, 0, x, y, radius);
     pg.addColorStop(0,'#5599ff'); pg.addColorStop(0.45,'#2255cc'); pg.addColorStop(0.8,'#112288'); pg.addColorStop(1,'#050e44');
-    ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2);
-    ctx.fillStyle = pg; ctx.fill();
-
+    ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2); ctx.fillStyle = pg; ctx.fill();
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.globalAlpha = 0.45;
     ctx.fillStyle = '#33bb55';
     [{ex:-8,ey:-4,ew:17,eh:9,rot:.3},{ex:10,ey:7,ew:12,eh:7,rot:-.4},{ex:-15,ey:10,ew:8,eh:5,rot:.8}].forEach(c => {
@@ -1965,25 +1961,20 @@ class SpantherGame {
     ctx.globalAlpha = 0.2; ctx.fillStyle = '#99eeff';
     ctx.beginPath(); ctx.ellipse(0,-radius*0.7,radius*0.4,radius*0.2,0,0,Math.PI*2); ctx.fill();
     ctx.globalAlpha = 1; ctx.restore();
-
-    ctx.save(); ctx.translate(x, y);
-    ctx.globalAlpha = 0.15;
+    ctx.save(); ctx.translate(x, y); ctx.globalAlpha = 0.15;
     ctx.strokeStyle = '#88aaff'; ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.ellipse(0, 0, radius*1.7, radius*0.4, 0.3, 0, Math.PI*2);
-    ctx.stroke(); ctx.globalAlpha = 1; ctx.restore();
-
+    ctx.beginPath(); ctx.ellipse(0, 0, radius*1.7, radius*0.4, 0.3, 0, Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.restore();
     if (shield > 0) {
       const shieldAlpha = (shield / maxShield) * 0.35 + 0.06;
       for (let i = 0; i < 2; i++) {
         ctx.beginPath(); ctx.arc(x, y, radius + 10 + i*4, 0, Math.PI*2);
-        ctx.strokeStyle = `rgba(100,200,255,${shieldAlpha / (i+1)})`; ctx.lineWidth = 2 - i*0.5;
-        ctx.stroke();
+        ctx.strokeStyle = `rgba(100,200,255,${shieldAlpha / (i+1)})`; ctx.lineWidth = 2 - i*0.5; ctx.stroke();
       }
       ctx.beginPath(); ctx.arc(x, y, radius+10, -Math.PI/2, -Math.PI/2 + (shield/maxShield)*Math.PI*2);
       ctx.strokeStyle = `rgba(150,220,255,0.7)`; ctx.lineWidth = 2;
       ctx.shadowColor = '#aaddff'; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
     }
-
     const bw = radius*2.8, bh = 5, bx = x-bw/2, by = y+radius+14;
     ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(bx, by, bw, bh);
     const hc = health > 60 ? '#33ff66' : health > 30 ? '#ffaa00' : '#ff3333';
@@ -2008,11 +1999,9 @@ class SpantherGame {
     ctx.fillStyle = colors[a.size]; ctx.fill();
     ctx.strokeStyle = a.glowing ? '#00e5ff' : 'rgba(180,140,90,0.25)';
     ctx.lineWidth = a.glowing ? 1.5 : 1; ctx.stroke(); ctx.shadowBlur = 0;
-
     ctx.globalAlpha = 0.25; ctx.fillStyle = 'rgba(0,0,0,0.7)';
     for (const c of a.craters) { ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill(); }
     ctx.globalAlpha = 1;
-
     if (a.focusProgress > 0) {
       const prog = a.focusProgress / a.focusTime;
       ctx.beginPath(); ctx.arc(0, 0, a.radius+6, -Math.PI/2, -Math.PI/2 + prog*Math.PI*2);
@@ -2064,8 +2053,7 @@ class SpantherGame {
     ctx.save();
     ctx.font = 'bold 17px Orbitron, monospace'; ctx.fillStyle = '#00e5ff';
     ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 8;
-    ctx.fillText(`${this.score.toString().padStart(6,'0')}`, 18, 30);
-    ctx.shadowBlur = 0;
+    ctx.fillText(`${this.score.toString().padStart(6,'0')}`, 18, 30); ctx.shadowBlur = 0;
     ctx.font = '700 11px Orbitron, monospace'; ctx.fillStyle = 'rgba(0,229,255,0.5)';
     ctx.fillText(`WAVE ${this.wave}`, 18, 50);
     ctx.font = '9px Space Mono, monospace'; ctx.fillStyle = '#666688'; ctx.textAlign = 'right';
@@ -2105,8 +2093,7 @@ class SpantherGame {
     ctx.save(); ctx.textAlign = 'center';
     ctx.font = '900 clamp(20px,3vw,32px) Orbitron, monospace';
     ctx.fillStyle = '#00e5ff'; ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 25;
-    ctx.fillText('DEFEND THE PLANET', W/2, H/2 - 70);
-    ctx.shadowBlur = 0;
+    ctx.fillText('DEFEND THE PLANET', W/2, H/2 - 70); ctx.shadowBlur = 0;
     ctx.font = '400 14px Barlow Condensed, sans-serif'; ctx.fillStyle = 'rgba(200,200,220,0.75)';
     const lines = [
       'Move your mouse (or use eye tracking) to aim at asteroids.',
@@ -2145,8 +2132,7 @@ class SpantherGame {
     ctx.save(); ctx.textAlign = 'center';
     ctx.font = '900 32px Orbitron, monospace'; ctx.fillStyle = '#ff3a5c';
     ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 30;
-    ctx.fillText('PLANET DESTROYED', W/2, H/2 - 65);
-    ctx.shadowBlur = 0;
+    ctx.fillText('PLANET DESTROYED', W/2, H/2 - 65); ctx.shadowBlur = 0;
     ctx.font = '700 22px Orbitron, monospace'; ctx.fillStyle = '#00e5ff';
     ctx.fillText(`SCORE: ${this.score}`, W/2, H/2 - 18);
     ctx.font = '400 14px Barlow Condensed, sans-serif'; ctx.fillStyle = 'rgba(200,200,220,0.6)';
@@ -2182,24 +2168,44 @@ function gameAction(action) {
 }
 
 // ============================================================
-//  EYEDID / SEESO — стабильная инициализация + красивая калибровка
+//  ✅ EYEDID / SEESO — waitForSDK + стабильная инициализация
 // ============================================================
 
-let tracker       = null;
+let tracker           = null;
 let eyeTrackingActive = false;
 
 // Состояние калибровки
 const calib = {
   totalPoints : 5,
   donePoints  : 0,
-  sampleTimer : null,   // таймер автосбора сэмплов
-  SAMPLE_MS   : 1800,   // сколько мс собираем сэмплы на точке
+  sampleTimer : null,
+  SAMPLE_MS   : 1800,
 };
 
+/**
+ * ✅ НОВАЯ ФУНКЦИЯ: ждём, пока type="module" загрузит SDK в window.SeeSo.
+ * Нужна потому что ES-модули грузятся асинхронно и могут ещё не быть
+ * доступны к моменту вызова enableEyedid().
+ */
+function waitForSDK(ms = 6000) {
+  return new Promise((resolve, reject) => {
+    if (typeof window.SeeSo !== 'undefined') { resolve(); return; }
+    const iv = setInterval(() => {
+      if (typeof window.SeeSo !== 'undefined') {
+        clearInterval(iv); clearTimeout(to); resolve();
+      }
+    }, 100);
+    const to = setTimeout(() => {
+      clearInterval(iv);
+      reject(new Error('SeeSo SDK не загрузился за ' + ms + 'мс. Проверь путь /sdk/seeso.js'));
+    }, ms);
+  });
+}
+
 async function enableEyedid() {
-  const btn     = document.getElementById('btn-webcam');
-  const etDot   = document.getElementById('et-dot');
-  const etText  = document.getElementById('et-status-text');
+  const btn    = document.getElementById('btn-webcam');
+  const etDot  = document.getElementById('et-dot');
+  const etText = document.getElementById('et-status-text');
 
   // --- ВЫКЛЮЧЕНИЕ ---
   if (eyeTrackingActive) {
@@ -2214,24 +2220,13 @@ async function enableEyedid() {
     return;
   }
 
-  // --- Проверка ключа ---
-  if (!EYEDID_LICENSE_KEY || EYEDID_LICENSE_KEY.includes('YOUR_')) {
-    alert('Вставь лицензионный ключ Eyedid в константу EYEDID_LICENSE_KEY');
-    return;
-  }
-
   btn.textContent = '⏳ ИНИЦИАЛИЗАЦИЯ...';
   btn.disabled    = true;
 
-  // Гарантируем, что SDK загружен
-  if (typeof SeeSo === 'undefined') {
-    showCalibError('SDK не загружен. Убедись, что /sdk/seeso.js существует.');
-    btn.textContent = '📷 ENABLE EYE TRACKING';
-    btn.disabled = false;
-    return;
-  }
-
   try {
+    // ✅ Ждём загрузки SDK (ES-модуль асинхронный)
+    await waitForSDK();
+
     await SeeSo.init(
       EYEDID_LICENSE_KEY,
       /* onSuccess */ async () => {
@@ -2248,24 +2243,25 @@ async function enableEyedid() {
     );
   } catch (err) {
     console.error('enableEyedid exception:', err);
-    showCalibError('Не удалось получить доступ к камере.');
+    showCalibError(err.message || 'Не удалось получить доступ к камере.');
     btn.textContent = '📷 ENABLE EYE TRACKING';
     btn.disabled = false;
   }
 }
 
 // ------------------------------------------------------------
-//  Показываем сообщение об ошибке прямо в оверлее
+//  Показываем сообщение об ошибке в оверлее
 // ------------------------------------------------------------
 function showCalibError(msg) {
   const overlay = document.getElementById('calibration-overlay');
   const sub     = document.getElementById('calib-instruction');
   overlay.classList.add('active');
-  sub.style.color = 'var(--red)';
+  sub.style.color  = 'var(--red)';
   sub.textContent  = msg;
   setTimeout(() => {
     overlay.classList.remove('active');
     sub.style.color = '';
+    sub.textContent = 'Посмотрите на точку и нажмите на неё';
   }, 3500);
 }
 
@@ -2274,65 +2270,56 @@ function showCalibError(msg) {
 // ------------------------------------------------------------
 function setupCalibrationUI() {
   const point = document.getElementById('calibration-point');
-  // Убираем старые слушатели, клонируя узел
   const fresh = point.cloneNode(true);
   point.parentNode.replaceChild(fresh, point);
-
-  // Клик по точке = начать сбор сэмплов
   fresh.addEventListener('click', onCalibPointClick);
 }
 
 function onCalibPointClick() {
   const point = document.getElementById('calibration-point');
-  if (point.classList.contains('collecting')) return; // уже собираем
+  if (point.classList.contains('collecting')) return;
 
   point.classList.add('collecting');
   document.getElementById('calib-instruction').textContent = 'Смотрите на точку, не моргайте...';
   document.getElementById('calib-instruction').classList.add('collecting');
 
-  // Анимируем SVG-кольцо
   animateCalibRing(calib.SAMPLE_MS);
+  tracker.startCollectSamples();
 
-  tracker.startCollectSamples(); // сообщаем SDK начать запись
-
-  // Авто-переход через SAMPLE_MS (SDK сам вызовет onCalibrationNextPoint / Finished)
   calib.sampleTimer = setTimeout(() => {
     point.classList.remove('collecting');
     document.getElementById('calib-instruction').classList.remove('collecting');
   }, calib.SAMPLE_MS);
 }
 
-// Анимирует SVG-кольцо от 0 до 100% за `ms` миллисекунд
 function animateCalibRing(ms) {
   const ring = document.getElementById('calib-ring-fill');
   const circumference = 163.4;
   const start = performance.now();
-
   function frame(now) {
     const progress = Math.min((now - start) / ms, 1);
     ring.style.strokeDashoffset = circumference * (1 - progress);
     if (progress < 1) requestAnimationFrame(frame);
-    else ring.style.strokeDashoffset = circumference; // сброс
+    else ring.style.strokeDashoffset = circumference;
   }
   requestAnimationFrame(frame);
 }
 
-// Обновляем прогресс-бар
 function updateCalibProgress(done) {
   const bar   = document.getElementById('calib-progress-bar');
   const label = document.getElementById('calib-progress-label');
-  bar.style.width    = `${(done / calib.totalPoints) * 100}%`;
-  label.textContent  = `${done} / ${calib.totalPoints}`;
+  bar.style.width   = `${(done / calib.totalPoints) * 100}%`;
+  label.textContent = `${done} / ${calib.totalPoints}`;
 }
 
 // ------------------------------------------------------------
 //  Запуск трекера и калибровки
 // ------------------------------------------------------------
 async function startTrackerAndCalibrate() {
-  const btn    = document.getElementById('btn-webcam');
-  const etDot  = document.getElementById('et-dot');
-  const etText = document.getElementById('et-status-text');
-  const canvas = document.getElementById('game-canvas');
+  const btn     = document.getElementById('btn-webcam');
+  const etDot   = document.getElementById('et-dot');
+  const etText  = document.getElementById('et-status-text');
+  const canvas  = document.getElementById('game-canvas');
   const overlay = document.getElementById('calibration-overlay');
 
   calib.donePoints = 0;
@@ -2351,28 +2338,25 @@ async function startTrackerAndCalibrate() {
 
   const calibrationCallback = {
     onCalibrationProgress(progress) {
-      // progress: 0–1, можно использовать для доп. анимации
+      // можно использовать для доп. индикации
     },
 
     onCalibrationNextPoint(ptX, ptY) {
       calib.donePoints++;
-      updateCalibProgress(calib.donePoints - 1); // предыдущая завершена
+      updateCalibProgress(calib.donePoints - 1);
 
-      // Сбрасываем таймер старой точки (если был)
       clearTimeout(calib.sampleTimer);
 
       const point = document.getElementById('calibration-point');
       point.classList.remove('visible', 'collecting');
       document.getElementById('calib-instruction').textContent = 'Посмотрите на точку и нажмите на неё';
+      document.getElementById('calib-instruction').classList.remove('collecting');
 
-      // Позиционируем точку
       point.style.left = ptX + 'px';
       point.style.top  = ptY + 'px';
 
-      // Небольшая задержка для анимации появления
       setTimeout(() => {
         point.classList.add('visible');
-        // Переподключаем обработчик (т.к. мы клонировали узел в setupCalibrationUI)
         point.onclick = onCalibPointClick;
       }, 80);
     },
@@ -2384,7 +2368,6 @@ async function startTrackerAndCalibrate() {
       const point = document.getElementById('calibration-point');
       point.classList.remove('visible', 'collecting');
 
-      // Короткая задержка → скрываем оверлей
       setTimeout(() => {
         overlay.classList.remove('active');
         eyeTrackingActive = true;
@@ -2401,11 +2384,13 @@ async function startTrackerAndCalibrate() {
 
   await tracker.startTracking(gazeCallback, null, calibrationCallback);
 
-  // Показываем оверлей и запускаем калибровку
   overlay.classList.add('active');
   tracker.startCalibration(SeeSo.CalibrationMode.FIVE_POINT);
 }
 
+// ============================================================
+//  3D tilt на карточках
+// ============================================================
 document.querySelectorAll('.pricing-card').forEach(card => {
   card.addEventListener('mousemove', (e) => {
     const r = card.getBoundingClientRect();
@@ -2432,8 +2417,7 @@ document.querySelectorAll('.stat-card').forEach(card => {
   card.style.position = 'relative'; card.style.overflow = 'hidden';
   card.appendChild(scan);
   setInterval(() => {
-    scan.style.transition = 'left 1.2s ease';
-    scan.style.left = '150%';
+    scan.style.transition = 'left 1.2s ease'; scan.style.left = '150%';
     setTimeout(() => { scan.style.transition = 'none'; scan.style.left = '-100%'; }, 1400);
   }, 4000 + Math.random() * 2000);
 });
