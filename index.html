@@ -9,13 +9,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Barlow+Condensed:ital,wght@0,200;0,400;0,600;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <script type="module">
-  // Вытаскиваем нужные классы из файла
-  import Seeso, { TrackingState, UserStatusOption } from '/sdk/seeso.js';
+  // Используем относительный путь без первого слэша
+  import Seeso, { TrackingState, UserStatusOption } from './sdk/seeso.js';
   
-  // Кладем их в window, чтобы они были доступны кнопкам
   window.Seeso = Seeso;
   window.TrackingState = TrackingState;
   window.UserStatusOption = UserStatusOption;
+  
+  // Добавь это для отладки:
+  console.log("SDK Module attempt loaded");
 </script>
 <style>
 :root {
